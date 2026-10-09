@@ -169,7 +169,7 @@
     <div class="spacer"></div>
     <div class="me-id hidden" id="meId"></div>
     <div class="ctrl" id="ctrl">
-      <label class="switch" title="Update every 30 seconds"><input type="checkbox" id="auto" checked><span class="knob"></span>Auto-refresh</label>
+      <label class="switch" id="autoWrap" title="Update every 30 seconds"><input type="checkbox" id="auto" checked><span class="knob"></span>Auto-refresh</label>
       <span class="next" id="next"></span>
       <button class="btn" id="refreshBtn">Refresh</button>
     </div>
@@ -554,7 +554,7 @@
       var msg = e.message || String(e);
       if (e.code === 2) msg = 'Torn says this API key is incorrect. Check it, or press Forget key and enter it again.';
       errBox.textContent = 'Could not load data: ' + msg;
-    }).then(function () { S.loading = false; S.nextIn = REFRESH_SECS; });
+    }).then(function () { S.loading = false; S.nextIn = REFRESH_SECS; S.lastLoad = now(); });
   }
 
   // ---------------------------------------------------------------- render
@@ -723,6 +723,10 @@
     $('board').classList.toggle('hidden', v !== 'board' || !S.loaded);
     $('history').classList.toggle('hidden', v !== 'history');
     $('foot').classList.toggle('hidden', v !== 'board');
+    // Auto-refresh belongs to the War Board only
+    $('autoWrap').classList.toggle('hidden', v !== 'board');
+    $('next').classList.toggle('hidden', v !== 'board');
+    if (v === 'board' && S.key && S.loaded && now() - (S.lastLoad || 0) >= REFRESH_SECS) loadAll();
     if (v === 'history') renderHistory();
   }
 
@@ -927,7 +931,7 @@
 
   setInterval(function () {
     tick();
-    if (!S.key || S.loading) return;
+    if (!S.key || S.loading || H.view !== 'board') return;
     if ($('auto').checked) {
       S.nextIn--;
       if (S.nextIn <= 0) loadAll();
