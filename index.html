@@ -152,6 +152,20 @@
   .itw th:first-child{background:var(--surface2)}
   .itw thead tr:first-child th:first-child{background:var(--surface)}
   .itw td.tot{font-weight:600;color:var(--text)}
+  .itw td.hot{color:#ff6b6b;font-weight:600}
+  .itw tr.tb td{background:rgba(251,226,213,.10)} .itw tr.tm td{background:rgba(217,217,217,.06)}
+  .itw tr.tk td{background:rgba(202,237,251,.08)} .itw tr.tn td{background:rgba(218,242,208,.09)}
+  .itw tr td:first-child{box-shadow:inset 3px 0 0 transparent}
+  .itw tr.tb td:first-child{box-shadow:inset 3px 0 0 #fbe2d5;background:#2b2630} .itw tr.tm td:first-child{box-shadow:inset 3px 0 0 #d9d9d9;background:#232331}
+  .itw tr.tk td:first-child{box-shadow:inset 3px 0 0 #caedfb;background:#1f2a36} .itw tr.tn td:first-child{box-shadow:inset 3px 0 0 #daf2d0;background:#212c2c}
+  .itools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:0 0 10px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .colpick{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+  .colpick .cg{margin-bottom:8px} .colpick .cg b{display:block;font:600 12px Inter,sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+  .colpick label{display:inline-flex;align-items:center;gap:6px;margin:3px 14px 3px 0;font-size:13px;cursor:pointer}
+  .colpick input{accent-color:var(--accent)}
+  .colpick .ca{display:flex;gap:8px;margin-top:6px}
   .hsearch{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
   .hsearch input{flex:1;min-width:200px;background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;font:14px Inter,sans-serif}
   .fres{display:grid;grid-template-columns:1fr auto;gap:2px 14px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:8px;color:var(--text);cursor:pointer;font:14px Inter,sans-serif}
@@ -967,18 +981,49 @@
     });
   }
 
+  // grp: b = member details, p = personal stats, w = war report summary. xw = Excel column width
   var ICOLS = [
-    { k: 'name', t: 'Member' }, { k: 'id', t: 'ID', num: 1 }, { k: 'level', t: 'Level', num: 1 }, { k: 'pos', t: 'Position' },
-    { k: 'bs', t: 'Est. Stats', num: 1 },
-    { k: 'rankedwarhits', t: 'War Hits', num: 1, g: 1 }, { k: 'energydrinkused', t: 'Cans Used', num: 1 }, { k: 'xantaken', t: 'Xanax Used', num: 1 },
-    { k: 'networth', t: 'Networth', num: 1 }, { k: 'bestdamage', t: 'Biggest Hit', num: 1 }, { k: 'refills', t: 'Refills', num: 1 }
+    { k: 'name', t: 'Member', grp: 'b', xw: 18 }, { k: 'id', t: 'ID', num: 1, grp: 'b', xw: 10 }, { k: 'level', t: 'Level', num: 1, grp: 'b', xw: 7 },
+    { k: 'pos', t: 'Position', grp: 'b', xw: 13 },
+    { k: 'bs', t: 'Est. Stats', num: 1, grp: 'b', xw: 20 }, { k: 'bss', t: 'Est. Stats (short)', num: 1, grp: 'b', xw: 13 },
+    { k: 'rankedwarhits', t: 'War Hits', num: 1, grp: 'p', xw: 9 }, { k: 'energydrinkused', t: 'Cans Used', num: 1, grp: 'p', xw: 10 },
+    { k: 'xantaken', t: 'Xanax Used', num: 1, grp: 'p', xw: 11 }, { k: 'networth', t: 'Networth', num: 1, grp: 'p', xw: 20 },
+    { k: 'nws', t: 'Networth (short)', num: 1, grp: 'p', xw: 12 }, { k: 'bestdamage', t: 'Biggest Hit', num: 1, grp: 'p', xw: 11 },
+    { k: 'refills', t: 'Refills', num: 1, grp: 'p', xw: 8 }
   ];
+  I.hide = load('kw_intel_hide', {}) || {};
+  // Short form as in the Factsheet: 2 decimals and a capital T, B, M or K
+  function shortCap(n) {
+    n = Number(n); var a = Math.abs(n);
+    if (a >= 1e12) return (n / 1e12).toFixed(2) + ' T';
+    if (a >= 1e9) return (n / 1e9).toFixed(2) + ' B';
+    if (a >= 1e6) return (n / 1e6).toFixed(2) + ' M';
+    if (a >= 1e3) return (n / 1e3).toFixed(2) + ' K';
+    return String(n);
+  }
+  // Row colour tier from estimated stats, as in the Factsheet
+  function tierOf(m) {
+    var f = ffOf(m); if (!f || f.bs_estimate == null) return '';
+    var v = Number(f.bs_estimate);
+    return v >= 1e9 ? 'b' : v >= 1e6 ? 'm' : v >= 1e3 ? 'k' : 'n';
+  }
+  function intelCols(wars, o) {
+    var cols = ICOLS.slice();
+    wars.forEach(function (w, i) {
+      cols.push({ k: 'w' + i, t: shortDate(w.start), num: 1, grp: 'w', xw: 9, war: w,
+        title: 'vs ' + ((w.factions || []).filter(function (x) { return Number(x.id) !== o; })[0] || {}).name });
+    });
+    if (wars.length) cols.push({ k: 'wt', t: 'RW Total', num: 1, grp: 'w', xw: 10 });
+    return cols;
+  }
+  function visibleCols(cols) { return cols.filter(function (c) { return c.k === 'name' || !I.hide[c.k]; }); }
   function intelVal(m, k, wars) {
     if (k === 'name') return String(m.name || '').toLowerCase();
     if (k === 'id') return Number(m.id);
     if (k === 'level') return m.level || 0;
     if (k === 'pos') return String(m.position || '').toLowerCase();
-    if (k === 'bs') { var f = ffOf(m); return f && f.bs_estimate != null ? Number(f.bs_estimate) : -1; }
+    if (k === 'bs' || k === 'bss') { var f = ffOf(m); return f && f.bs_estimate != null ? Number(f.bs_estimate) : -1; }
+    if (k === 'nws') k = 'networth';
     if (k.charAt(0) === 'w') {
       if (k === 'wt') { var t = 0; wars.forEach(function (w) { var s = I.ws[w.id]; if (s && s[m.id] != null) t += s[m.id]; }); return t; }
       var w = wars[Number(k.slice(1))], s = w && I.ws[w.id];
@@ -993,14 +1038,16 @@
     if (k === 'id') return String(m.id);
     if (k === 'level') return String(m.level || '');
     if (k === 'pos') return esc(m.position || '');
-    if (k === 'bs') return bsCell(m);
     var v = intelVal(m, k, wars);
+    if (k === 'bs') return v < 0 ? na : fmtNum(v);
+    if (k === 'bss') return v < 0 ? na : shortCap(v);
+    if (k === 'nws') return v < 0 ? na : shortCap(v);
     if (k.charAt(0) === 'w') {
       if (k === 'wt') return fmtNum(v, 1);
       return v < 0 ? na : fmtNum(v, 1);
     }
     if (v < 0) return na;
-    return k === 'networth' ? shortNum(v) : fmtNum(v);
+    return fmtNum(v);
   }
 
   function renderIntel() {
@@ -1013,35 +1060,65 @@
     intelQueue(o, S.factions[o].members, wars);
     renderIntelBody();
   }
+  function intelSorted(members, wars) {
+    var s = I.sort;
+    return members.slice().sort(function (a, b) {
+      var x = intelVal(a, s.k, wars), y = intelVal(b, s.k, wars);
+      var r = x < y ? -1 : x > y ? 1 : 0;
+      return r === 0 ? String(a.name).localeCompare(String(b.name)) : r * s.d;
+    });
+  }
+  function grpName(g, wars) {
+    return g === 'p' ? 'Personal stats' : g === 'w' ? 'War Report Summary - Wars analyzed: ' + wars.length : '';
+  }
   function renderIntelBody() {
     var box = $('intel'), o = oppId(), f = o && S.factions[o];
     var wars = o ? intelWars(o) : null;
     if (!f || !wars) return;
     var members = f.members, done = 0;
     members.forEach(function (m) { if (I.ps[m.id]) done++; });
-    var cols = ICOLS.slice();
-    wars.forEach(function (w, i) { cols.push({ k: 'w' + i, t: shortDate(w.start), num: 1, g: i === 0 ? 2 : 0, title: 'vs ' + ((w.factions || []).filter(function (x) { return Number(x.id) !== o; })[0] || {}).name }); });
-    if (wars.length) cols.push({ k: 'wt', t: 'RW Total', num: 1 });
-    var s = I.sort;
-    var list = members.slice().sort(function (a, b) {
-      var x = intelVal(a, s.k, wars), y = intelVal(b, s.k, wars);
-      var r = x < y ? -1 : x > y ? 1 : 0;
-      return r === 0 ? String(a.name).localeCompare(String(b.name)) : r * s.d;
-    });
+    var all = intelCols(wars, o), cols = visibleCols(all), s = I.sort;
+    var list = intelSorted(members, wars);
     var h = '<div class="intel-head"><span class="pn"><a href="https://www.torn.com/factions.php?step=profile&amp;ID=' + o + '" target="_blank" rel="noopener">' + esc(f.name) + '</a></span>' +
       '<span class="pid" style="color:var(--faint)">[' + o + ']</span><span class="prog">' + members.length + ' members' +
-      (done < members.length ? ' · loading stats ' + done + ' of ' + members.length : '') + '</span></div>';
-    h += '<div class="itw"><table id="intelTable"><thead><tr><th class="grp" colspan="5" style="border-left:0"></th>' +
-      '<th class="grp" colspan="6">Personal stats</th>' +
-      (wars.length ? '<th class="grp" colspan="' + (wars.length + 1) + '">Score in last ' + wars.length + ' ranked wars</th>' : '') + '</tr><tr>';
+      (done < members.length ? ' · loading stats ' + done + ' of ' + members.length : '') + '</span>' +
+      '<span class="itools"><button class="btn" id="colBtn">Columns</button><button class="btn primary" id="dlBtn"' + (done < members.length ? ' disabled title="Available once all stats have loaded"' : '') + '>Download Excel</button></span></div>';
+    if (I.pick) {
+      h += '<div class="colpick">';
+      [['b', 'Member details'], ['p', 'Personal stats'], ['w', 'War Report Summary']].forEach(function (g) {
+        var gc = all.filter(function (c) { return c.grp === g[0]; });
+        if (!gc.length) return;
+        h += '<div class="cg"><b>' + g[1] + '</b>';
+        gc.forEach(function (c) {
+          h += '<label><input type="checkbox" data-col="' + c.k + '"' + (c.k === 'name' ? ' checked disabled' : (I.hide[c.k] ? '' : ' checked')) + '>' + esc(c.t) + (c.title ? ' <span style="color:var(--faint)">' + esc(c.title) + '</span>' : '') + '</label>';
+        });
+        h += '</div>';
+      });
+      h += '<div class="ca"><button class="btn ghost" data-colall="1">Show all</button><button class="btn ghost" data-colclose="1">Done</button></div></div>';
+    }
+    h += '<div class="legend"><span><i style="background:#fbe2d5"></i>Billions or more</span><span><i style="background:#d9d9d9"></i>Millions</span>' +
+      '<span><i style="background:#caedfb"></i>Thousands</span><span><i style="background:#daf2d0"></i>Under 1K</span><span style="color:#ff6b6b">Red war score: above 500</span></div>';
+    // group header row with colspans from the visible columns
+    var gh = '', run = null, span = 0;
+    cols.concat([{ grp: null }]).forEach(function (c) {
+      if (run !== null && c.grp !== run) { gh += '<th class="grp" colspan="' + span + '"' + (run === 'b' ? ' style="border-left:0"' : '') + '>' + esc(grpName(run, wars)) + '</th>'; span = 0; }
+      run = c.grp; span++;
+    });
+    h += '<div class="itw"><table id="intelTable"><thead><tr>' + gh + '</tr><tr>';
+    var prev = null;
     cols.forEach(function (c) {
-      h += '<th data-ik="' + c.k + '" class="' + (c.num ? 'num' : '') + (c.g ? ' gl' : '') + '"' + (c.title ? ' title="' + esc(c.title) + '"' : '') + '>' + esc(c.t) +
+      c._gl = prev !== null && c.grp !== prev; prev = c.grp;
+      h += '<th data-ik="' + c.k + '" class="' + (c.num ? 'num' : '') + (c._gl ? ' gl' : '') + '"' + (c.title ? ' title="' + esc(c.title) + '"' : '') + '>' + esc(c.t) +
         (s.k === c.k ? '<span class="ar">' + (s.d < 0 ? '▼' : '▲') + '</span>' : '') + '</th>';
     });
     h += '</tr></thead><tbody>';
     list.forEach(function (m) {
-      h += '<tr>';
-      cols.forEach(function (c) { h += '<td class="' + (c.num ? 'num' : '') + (c.g ? ' gl' : '') + (c.k === 'wt' ? ' tot' : '') + '">' + intelCell(m, c.k, wars) + '</td>'; });
+      var t = tierOf(m);
+      h += '<tr' + (t ? ' class="t' + t + '"' : '') + '>';
+      cols.forEach(function (c) {
+        var hot = c.grp === 'w' && c.k !== 'wt' && intelVal(m, c.k, wars) > 500;
+        h += '<td class="' + (c.num ? 'num' : '') + (c._gl ? ' gl' : '') + (c.k === 'wt' ? ' tot' : '') + (hot ? ' hot' : '') + '">' + intelCell(m, c.k, wars) + '</td>';
+      });
       h += '</tr>';
     });
     h += '</tbody></table></div>';
@@ -1051,8 +1128,92 @@
     var nw = box.querySelector('.itw'); if (nw) nw.scrollLeft = sx;
   }
 
+  // ---------------------------------------------------------------- intel download
+  var XLSX_SRC = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise(function (res, rej) {
+      var sc = document.createElement('script');
+      sc.src = XLSX_SRC; sc.onload = function () { res(window.XLSX); }; sc.onerror = function () { rej(new Error('Could not load the Excel library')); };
+      document.head.appendChild(sc);
+    });
+  }
+  function downloadIntel() {
+    var o = oppId(), f = o && S.factions[o], wars = o ? intelWars(o) : null;
+    if (!f || !wars) return;
+    var btn = $('dlBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Preparing...'; }
+    loadXlsx().then(function (X) {
+      var cols = visibleCols(intelCols(wars, o)), list = intelSorted(f.members, wars);
+      var FONT = { name: 'Aptos Narrow', sz: 11 };
+      var thin = { style: 'thin', color: { rgb: '000000' } }, box4 = { top: thin, bottom: thin, left: thin, right: thin };
+      var TIER = { b: 'FBE2D5', m: 'D9D9D9', k: 'CAEDFB', n: 'DAF2D0' };
+      var GFILL = { p: 'CAEDFB', w: 'C1F0C8' };
+      var rows = [], merges = [];
+      function cell(v, st, t, z) { var c = { v: v, t: t || (typeof v === 'number' ? 'n' : 's'), s: st }; if (z) c.z = z; if (z) st.numFmt = z; return c; }
+      // Row 1: title
+      var r1 = cols.map(function (c, i) { return cell(i === 0 ? 'Faction: ' + f.name + ' - Detailed Stats' : '', { font: Object.assign({ bold: true }, FONT) }); });
+      rows.push(r1);
+      // Row 2: group headers
+      var r2 = cols.map(function () { return cell('', { font: FONT }); });
+      var i = 0;
+      while (i < cols.length) {
+        var g = cols[i].grp, j = i;
+        while (j + 1 < cols.length && cols[j + 1].grp === g) j++;
+        if (GFILL[g]) {
+          for (var x = i; x <= j; x++) r2[x] = cell(x === i ? grpName(g, wars) : '', { font: Object.assign({ bold: true }, FONT), fill: { patternType: 'solid', fgColor: { rgb: GFILL[g] } }, alignment: { horizontal: 'center' }, border: box4 });
+          if (j > i) merges.push({ s: { r: 1, c: i }, e: { r: 1, c: j } });
+        }
+        i = j + 1;
+      }
+      rows.push(r2);
+      // Row 3: column headers
+      rows.push(cols.map(function (c) {
+        return cell(c.war ? c.t + ' (' + c.title + ')' : c.t, { font: Object.assign({ bold: true }, FONT), fill: { patternType: 'solid', fgColor: { rgb: 'F2CEEF' } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: box4 });
+      }));
+      // Data rows
+      list.forEach(function (m) {
+        var t = tierOf(m), fill = t ? { patternType: 'solid', fgColor: { rgb: TIER[t] } } : undefined;
+        rows.push(cols.map(function (c) {
+          var st = { font: Object.assign({}, FONT) }; if (fill) st.fill = fill;
+          var v = intelVal(m, c.k, wars);
+          if (c.k === 'name') return cell(m.name, st);
+          if (c.k === 'pos') return cell(m.position || '', st);
+          if (c.k === 'id' || c.k === 'level') return cell(Number(c.k === 'id' ? m.id : m.level || 0), st, 'n', '0');
+          if (c.grp === 'w') {
+            if (c.k !== 'wt' && v < 0) { st.alignment = { horizontal: 'right' }; return cell('X', st); }
+            if (c.k !== 'wt' && v > 500) st.font.color = { rgb: 'FF0000' };
+            return cell(v, st, 'n', '0.00');
+          }
+          if (v < 0) { st.alignment = { horizontal: 'right' }; return cell('N/A', st); }
+          if (c.k === 'bss' || c.k === 'nws') { st.alignment = { horizontal: 'right' }; return cell(shortCap(v), st); }
+          return cell(v, st, 'n', '#,##0');
+        }));
+      });
+      var ws = X.utils.aoa_to_sheet(rows.map(function (r) { return r.map(function (c) { return c.v; }); }));
+      rows.forEach(function (r, ri) { r.forEach(function (c, ci) { var a = X.utils.encode_cell({ r: ri, c: ci }); ws[a] = c; }); });
+      ws['!merges'] = merges;
+      ws['!cols'] = cols.map(function (c) { return { wch: c.war ? 14 : c.xw || 10 }; });
+      ws['!rows'] = [{}, {}, { hpt: 30 }];
+      var wb = X.utils.book_new();
+      X.utils.book_append_sheet(wb, ws, 'Factsheet');
+      var d = new Date(), ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      X.writeFile(wb, 'Intel_' + String(f.name).replace(/[^A-Za-z0-9_-]+/g, '_') + '_' + ds + '.xlsx');
+    }).catch(function (e) {
+      $('err').textContent = 'Could not create the download: ' + (e.message || e);
+    }).then(function () {
+      var b2 = $('dlBtn'); if (b2) { b2.disabled = false; b2.textContent = 'Download Excel'; }
+    });
+  }
+
+
   // ---------------------------------------------------------------- events
   document.addEventListener('click', function (ev) {
+    if (ev.target.closest('#colBtn')) { I.pick = !I.pick; renderIntelBody(); return; }
+    if (ev.target.closest('#dlBtn')) { downloadIntel(); return; }
+    if (ev.target.closest('[data-colall]')) { I.hide = {}; save('kw_intel_hide', I.hide); renderIntelBody(); return; }
+    if (ev.target.closest('[data-colclose]')) { I.pick = false; renderIntelBody(); return; }
+    var cb = ev.target.closest('#intel input[data-col]');
+    if (cb) { var ck = cb.getAttribute('data-col'); if (cb.checked) delete I.hide[ck]; else I.hide[ck] = 1; save('kw_intel_hide', I.hide); renderIntelBody(); return; }
     var ith = ev.target.closest('#intelTable th[data-ik]');
     if (ith) {
       var ik = ith.getAttribute('data-ik');
