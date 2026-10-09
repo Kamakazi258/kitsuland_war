@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KitsuLand War</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%230c0d17'/><path d='M15.7 3.2A9 9 0 1 0 21 14.3 7 7 0 0 1 15.7 3.2Z' fill='%23E8A6B8'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#0e0f18; --surface:#161724; --surface2:#1d1e2e; --border:rgba(184,180,214,.12); --border2:rgba(184,180,214,.22);
+    --text:#e9e7f2; --muted:#9a96b0; --faint:#6b6880;
+    --accent:#e8a6b8; --good:#87c9a6; --idle:#e2c78c; --bad:#d99a9a; --blue:#8ea3d8;
+    --display:"Space Grotesk","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1100px 600px at 78% -12%, rgba(232,166,184,.10), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(179,168,224,.08), transparent 60%),
+      var(--bg);
+    color:var(--text); font:14px/1.5 Inter,"Segoe UI",system-ui,sans-serif; min-height:100vh;
+  }
+  a{color:inherit}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 16px 60px}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .moon{width:32px;height:32px;flex:0 0 auto;filter:drop-shadow(0 0 12px rgba(232,166,184,.55))}
+  h1{font:700 22px var(--display);margin:0;letter-spacing:.2px}
+  .sub{color:var(--muted);font-size:12.5px}
+  .spacer{flex:1}
+  .ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .btn{background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:10px;padding:7px 14px;font:600 13px Inter,sans-serif;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);color:#1a1020;border-color:var(--accent)}
+  .btn.ghost{background:transparent}
+  .switch{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;cursor:pointer;user-select:none}
+  .switch input{display:none}
+  .knob{width:34px;height:20px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);position:relative;transition:.2s}
+  .knob::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:.2s}
+  .switch input:checked + .knob{background:rgba(135,201,166,.25);border-color:var(--good)}
+  .switch input:checked + .knob::after{left:16px;background:var(--good)}
+  .next{color:var(--faint);font-size:12px;min-width:110px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px}
+  .keycard{margin-bottom:18px}
+  .keycard h2{font:600 15px var(--display);margin:0 0 6px}
+  .keyrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .keyrow input{flex:1;min-width:200px;background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;font:14px Inter,sans-serif}
+  .note{color:var(--muted);font-size:12.5px;margin:4px 0}
+  .note b{color:var(--text);font-weight:600}
+  .keysaved{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12.5px;margin-bottom:14px}
+  .keysaved .dot{width:8px;height:8px;border-radius:50%;background:var(--good)}
+  .err{background:rgba(217,154,154,.10);border:1px solid rgba(217,154,154,.35);color:#f0c4c4;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+  .err:empty{display:none}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .tab{flex:1;min-width:160px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;cursor:pointer;text-align:left;color:var(--text)}
+  .tab .tn{font:600 15px var(--display)}
+  .tab .ts{font:700 24px var(--display);color:var(--muted)}
+  .tab.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .tab.home .ts{color:var(--bad)} .tab.opp .ts{color:var(--good)}
+  .chip{display:inline-block;font:600 10.5px Inter,sans-serif;letter-spacing:.4px;text-transform:uppercase;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle;background:var(--surface2);color:var(--muted);border:1px solid var(--border2)}
+  .chip.live{color:var(--good);border-color:rgba(135,201,166,.4)}
+  .sec{margin-bottom:18px}
+  .sech{display:flex;align-items:center;gap:8px;font:600 14px var(--display);margin:0 0 8px 2px;text-transform:uppercase;letter-spacing:.6px}
+  .sech .d{width:9px;height:9px;border-radius:50%}
+  .sech .n{color:var(--faint);font-weight:500}
+  .d.online{background:var(--good)} .d.idle{background:var(--idle)} .d.offline{background:var(--faint)} .d.abroad{background:var(--blue)}
+  .tw{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+  table{width:100%;border-collapse:collapse;min-width:560px}
+  th{font:600 11.5px Inter,sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;background:var(--surface2)}
+  th:hover{color:var(--text)}
+  th .ar{color:var(--accent);margin-left:4px}
+  th.num,td.num{text-align:right}
+  td{padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:rgba(255,255,255,.02)}
+  tr.me td{background:rgba(135,201,166,.08)}
+  .nm{font-weight:600;text-decoration:none}
+  .nm:hover{color:var(--accent)}
+  .st-ok{color:var(--good);font-weight:600}
+  .st-hosp{color:var(--bad);font-weight:600;font-variant-numeric:tabular-nums}
+  .st-jail{color:var(--idle);font-weight:600;font-variant-numeric:tabular-nums}
+  .st-fly,.st-abroad{color:var(--blue);font-weight:600}
+  .st-other{color:var(--muted)}
+  .eta{font-variant-numeric:tabular-nums}
+  .eta small,.loc small{color:var(--faint);display:block;font-size:11px}
+  .atk{display:inline-block;padding:4px 12px;border-radius:8px;font:600 12px Inter,sans-serif;text-decoration:none;border:1px solid var(--bad);color:#fff;background:rgba(217,154,154,.30)}
+  .atk:hover{background:rgba(217,154,154,.5)}
+  .atk.dim{opacity:.38;border-color:var(--border2);background:transparent;color:var(--muted)}
+  .atk.dim:hover{opacity:.7}
+  .empty{color:var(--faint);padding:12px 14px;font-size:13px}
+  .na{color:var(--faint)}
+  .foot{color:var(--faint);font-size:12px;margin-top:22px;text-align:center}
+  .hidden{display:none !important}
+  @media (max-width:600px){ h1{font-size:19px} .tab .ts{font-size:20px} .next{min-width:0} td,th{padding:8px 9px} table{min-width:520px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15.5 2.5A9.5 9.5 0 1 0 21.5 15 7.5 7.5 0 0 1 15.5 2.5Z" fill="#E8A6B8"/></svg>
+      <div><h1>KitsuLand War</h1><div class="sub">Live ranked war board</div></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="ctrl" id="ctrl">
+      <label class="switch" title="Update every 30 seconds"><input type="checkbox" id="auto" checked><span class="knob"></span>Auto-refresh</label>
+      <span class="next" id="next"></span>
+      <button class="btn" id="refreshBtn">Refresh</button>
+    </div>
+  </header>
+
+  <div class="card keycard" id="keyCard">
+    <h2>Enter your Torn API key</h2>
+    <div class="note">Data comes straight from Torn. Your key is saved only in this browser and is never sent anywhere else.</div>
+    <div class="keyrow">
+      <input type="password" id="keyInput" placeholder="Your Torn API key" autocomplete="off" spellcheck="false">
+      <button class="btn primary" id="saveKey">Save key</button>
+    </div>
+    <div class="note"><b>Public key:</b> shows members, status, hospital timers and travel.</div>
+    <div class="note"><b>Limited key with faction API access</b> (KitsuLand members only): also shows each member's live war score.</div>
+  </div>
+
+  <div class="keysaved hidden" id="keySaved"><span style="display:flex;align-items:center;gap:8px"><span class="dot"></span><span>Key saved in this browser. Data comes straight from Torn.</span></span><button class="btn ghost" id="forgetKey">Forget key</button></div>
+
+  <div class="err" id="err"></div>
+
+  <div id="board" class="hidden">
+    <div class="tabs" id="tabs"></div>
+    <div id="panel"></div>
+  </div>
+
+  <div class="foot">ETA is an estimate from the plane type and Torn's flight times. Torn does not share other players' landing times.</div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------- settings
+  var HOME_ID = 7251;                        // KitsuLand
+  var API = 'https://api.torn.com/v2';
+  var TRACKER = 'https://script.google.com/macros/s/AKfycbxINZrplu6AO46R-l5gpnmYWD95Nr6l02g7bVXvFujByieFa2lpTmGge2xG6AmhRLoD/exec?view=kwdepart';
+  var REFRESH_SECS = 30;
+
+  // One-way flight minutes from the Torn wiki: [Standard, Airstrip, Private (WLT), Business]
+  var COUNTRIES = [
+    { name: 'Mexico',         keys: ['mexic'],                      t: [24, 17, 12, 7] },
+    { name: 'Cayman Islands', keys: ['cayman'],                     t: [33, 23, 17, 10] },
+    { name: 'Canada',         keys: ['canad'],                      t: [39, 27, 19, 12] },
+    { name: 'Hawaii',         keys: ['hawai'],                      t: [127, 89, 63, 38] },
+    { name: 'United Kingdom', keys: ['united kingdom', 'british', 'london'], t: [151, 106, 75, 45] },
+    { name: 'Argentina',      keys: ['argentin'],                   t: [158, 111, 79, 47] },
+    { name: 'Switzerland',    keys: ['switzerland', 'swiss'],       t: [166, 116, 83, 50] },
+    { name: 'Japan',          keys: ['japan'],                      t: [213, 149, 107, 64] },
+    { name: 'China',          keys: ['china', 'chinese'],           t: [229, 160, 114, 69] },
+    { name: 'UAE',            keys: ['uae', 'emirat', 'arab', 'dubai'], t: [257, 180, 128, 77] },
+    { name: 'South Africa',   keys: ['south africa'],               t: [282, 197, 141, 85] }
+  ];
+  var LOW = 0.75 * 0.97;   // book (25% faster) and 3% flight variation
+  var HIGH = 1.03;
+
+  // ---------------------------------------------------------------- state
+  var S = {
+    key: '', war: null, factions: {}, order: [], tab: 'home',
+    scores: null, scoreState: 'none', dep: {}, loading: false, nextIn: 0, loaded: false
+  };
+  var sortState = load('kw_sort', {}) || {};
+
+  // ---------------------------------------------------------------- helpers
+  function $(id) { return document.getElementById(id); }
+  function load(k, d) { try { var s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch (e) { return d; } }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function now() { return Math.floor(Date.now() / 1000); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fmtNum(n, d) { return Number(n).toLocaleString('en-US', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }); }
+  function clock(s) {
+    s = Math.max(0, Math.floor(s));
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
+  }
+  function mins(s) {
+    var m = Math.max(0, Math.ceil(s / 60));
+    if (m < 60) return m + '';
+    return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm';
+  }
+  function dur(s) { var m = Math.max(0, Math.ceil(s / 60)); return m < 60 ? m + ' min' : mins(s); }
+  function countryOf(text) {
+    var t = String(text || '').toLowerCase();
+    for (var i = 0; i < COUNTRIES.length; i++) {
+      for (var j = 0; j < COUNTRIES[i].keys.length; j++) if (t.indexOf(COUNTRIES[i].keys[j]) >= 0) return COUNTRIES[i];
+    }
+    return null;
+  }
+
+  function api(path, params) {
+    var u = API + path + (path.indexOf('?') >= 0 ? '&' : '?') + 'key=' + encodeURIComponent(S.key) + (params ? '&' + params : '');
+    return getJson(u);
+  }
+  function getJson(u) {
+    return fetch(u, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.error) { var e = new Error(d.error.error || 'Torn API error'); e.code = d.error.code; throw e; }
+      return d;
+    });
+  }
+
+  // ---------------------------------------------------------------- travel
+  function parseTravel(desc) {
+    var d = String(desc || ''), m;
+    if ((m = d.match(/returning to torn from (.+)$/i))) return { from: countryOf(m[1]), to: null, fromTorn: false };
+    if ((m = d.match(/from (.+?) to (.+)$/i))) {
+      var toTorn = /^torn/i.test(m[2].trim());
+      return toTorn ? { from: countryOf(m[1]), to: null, fromTorn: false } : { from: null, to: countryOf(m[2]), fromTorn: true };
+    }
+    if ((m = d.match(/to (.+)$/i))) return { from: null, to: countryOf(m[1]), fromTorn: true };
+    return { from: null, to: null, fromTorn: true };
+  }
+  function routeText(t) {
+    var f = t.fromTorn ? 'Torn' : (t.from ? t.from.name : '?');
+    var to = t.fromTorn ? (t.to ? t.to.name : '?') : 'Torn';
+    return f + ' → ' + to;
+  }
+  var PLANE = { light_aircraft: 'Airstrip', private_jet: 'Private jet', airliner: 'Airliner' };
+
+  // Returns {lo, hi} seconds remaining, or {unknown:true}
+  function etaRange(m) {
+    var st = m.status || {};
+    var t = parseTravel(st.description);
+    var c = t.fromTorn ? t.to : t.from;
+    var dep = S.dep[m.id];
+    if (!c || !dep || dep.d !== st.description || dep.a == null) return { unknown: true, why: !c ? 'country' : 'start' };
+    var p = st.plane_image_type || dep.p, n = now(), lo, hi;
+    if (p === 'light_aircraft') { lo = c.t[1] * LOW; hi = c.t[1] * HIGH; }
+    else if (p === 'private_jet') { lo = c.t[2] * LOW; hi = c.t[2] * HIGH; }
+    else {
+      lo = c.t[3] * LOW; hi = c.t[0] * HIGH;
+      if (n > dep.b + c.t[3] * HIGH * 60) lo = c.t[0] * LOW;   // still flying after the Business window
+    }
+    return { lo: dep.a + lo * 60 - n, hi: dep.b + hi * 60 - n };
+  }
+  function etaText(m) {
+    var r = etaRange(m);
+    if (r.unknown) return r.why === 'country' ? 'Unknown' : 'Unknown (already flying)';
+    if (r.hi <= 0) return 'Landing any moment';
+    if (r.lo <= 0) return 'Any moment, up to ' + dur(r.hi);
+    if (r.hi < 3600) return 'Landing in ' + mins(r.lo) + '-' + mins(r.hi) + ' min';
+    return 'Landing in ' + dur(r.lo) + ' to ' + dur(r.hi);
+  }
+  function etaSort(m) { var r = etaRange(m); return r.unknown ? 1e12 : r.lo; }
+
+  // Records take-off windows seen by this browser; merged with the tracker's
+  function observe(members) {
+    var o = load('kw_obs', { t: 0, prev: {}, dep: {} });
+    var n = now(), fresh = o.t > 0 && n - o.t <= 300, cur = {}, dep = {};
+    members.forEach(function (m) {
+      var st = m.status || {}, id = String(m.id);
+      if (st.state === 'Traveling') {
+        var desc = String(st.description || '');
+        cur[id] = 'T' + desc;
+        var old = o.dep[id];
+        if (old && old.d === desc) dep[id] = old;
+        else {
+          var was = o.prev[id];
+          dep[id] = { d: desc, p: st.plane_image_type || '', a: (fresh && was !== undefined && was !== 'T' + desc) ? o.t : null, b: n };
+        }
+      } else cur[id] = 'S';
+    });
+    // keep entries for factions not in this fetch
+    Object.keys(o.prev).forEach(function (id) { if (!(id in cur)) { cur[id] = o.prev[id]; if (o.dep[id]) dep[id] = o.dep[id]; } });
+    save('kw_obs', { t: n, prev: cur, dep: dep });
+    return dep;
+  }
+  function mergeDep(local, remote) {
+    var out = {};
+    Object.keys(local).forEach(function (id) { out[id] = Object.assign({}, local[id]); });
+    Object.keys(remote || {}).forEach(function (id) {
+      var r = remote[id], l = out[id];
+      if (!l || l.d !== r.d) { if (!l) out[id] = Object.assign({}, r); return; }
+      var a = l.a == null ? r.a : (r.a == null ? l.a : Math.max(l.a, r.a));
+      out[id] = { d: l.d, p: l.p || r.p, a: a, b: Math.min(l.b, r.b) };
+    });
+    return out;
+  }
+
+  // ---------------------------------------------------------------- member status
+  function hospAbroad(st) { return st.state === 'Hospital' && countryOf(st.description); }
+  function section(m) {
+    var st = m.status || {};
+    if (st.state === 'Traveling' || st.state === 'Abroad' || hospAbroad(st)) return 'abroad';
+    var a = (m.last_action && m.last_action.status) || 'Offline';
+    return a === 'Online' ? 'online' : a === 'Idle' ? 'idle' : 'offline';
+  }
+  function statusInfo(m) {
+    var st = m.status || {}, n = now(), left = st.until ? st.until - n : 0;
+    switch (st.state) {
+      case 'Okay': return { text: 'Okay', cls: 'st-ok', ok: true, rank: 0, left: 0 };
+      case 'Hospital':
+        if (left <= 0) return { text: 'Okay', cls: 'st-ok', ok: true, rank: 0, left: 0 };
+        return { text: 'Hospital ' + clock(left), cls: 'st-hosp', ok: false, rank: 1, left: left };
+      case 'Jail':
+        if (left <= 0) return { text: 'Okay', cls: 'st-ok', ok: true, rank: 0, left: 0 };
+        return { text: 'Jail ' + clock(left), cls: 'st-jail', ok: false, rank: 1, left: left };
+      case 'Traveling': return { text: 'Flying', cls: 'st-fly', ok: false, rank: 2, left: 0 };
+      case 'Abroad': return { text: 'Abroad', cls: 'st-abroad', ok: false, rank: 3, left: 0 };
+      case 'Federal': return { text: 'Federal jail', cls: 'st-other', ok: false, rank: 4, left: 0 };
+      default: return { text: st.state || '-', cls: 'st-other', ok: false, rank: 4, left: 0 };
+    }
+  }
+  function locText(m) {
+    var st = m.status || {};
+    if (st.state === 'Traveling') return routeText(parseTravel(st.description));
+    var c = countryOf(st.description);
+    return c ? c.name : (st.description || '-');
+  }
+
+  // ---------------------------------------------------------------- scores (faction attack log)
+  function loadScores() {
+    var w = S.war;
+    if (!w) { S.scores = null; S.scoreState = 'nowar'; return Promise.resolve(); }
+    if (w.start > now()) { S.scores = {}; S.scoreState = 'ok'; return Promise.resolve(); }
+    var ck = 'kw_score_' + w.war_id;
+    var c = load(ck, null) || { from: w.start, ids: [], s: {} };
+    var seen = {}; c.ids.forEach(function (i) { seen[i] = 1; });
+    var pages = 0, to = w.end && w.end > 0 ? w.end : 0;
+    function page(url) {
+      return getJson(url).then(function (d) {
+        var list = d.attacks || [], newest = 0;
+        list.forEach(function (a) {
+          if (a.started > newest) newest = a.started;
+          if (seen[a.id]) return;
+          seen[a.id] = 1; c.ids.push(a.id);
+          if (!a.is_ranked_war || !a.attacker) return;
+          var id = String(a.attacker.id);
+          c.s[id] = (c.s[id] || 0) + Number(a.respect_gain || 0);
+        });
+        if (newest) c.from = Math.max(c.from, newest - 120);
+        pages++;
+        var next = d._metadata && d._metadata.links && d._metadata.links.next;
+        if (next && list.length >= 100 && pages < 25) {
+          var u = new URL(next);
+          if (!u.searchParams.get('key')) u.searchParams.set('key', S.key);
+          return page(u.toString());
+        }
+      });
+    }
+    var first = API + '/faction/attacks?limit=100&sort=ASC&from=' + c.from + (to ? '&to=' + to : '') + '&key=' + encodeURIComponent(S.key);
+    return page(first).then(function () {
+      if (c.ids.length > 20000) c.ids = c.ids.slice(-20000);
+      save(ck, c); S.scores = c.s; S.scoreState = 'ok';
+    }).catch(function (e) {
+      if (e.code === 7 || e.code === 16 || e.code === 6) { S.scoreState = 'noaccess'; S.scores = null; }
+      else { S.scoreState = S.scores ? 'ok' : 'error'; }
+    });
+  }
+
+  // ---------------------------------------------------------------- data load
+  function loadAll() {
+    if (!S.key || S.loading) return;
+    S.loading = true; S.nextIn = REFRESH_SECS; $('next').textContent = 'Updating...';
+    var errBox = $('err');
+    api('/faction/' + HOME_ID + '/wars').then(function (w) {
+      var rw = w && w.wars && w.wars.ranked;
+      S.war = rw || null;
+      var ids = [HOME_ID], names = {};
+      names[HOME_ID] = 'KitsuLand';
+      if (rw) (rw.factions || []).forEach(function (f) { names[f.id] = f.name; if (Number(f.id) !== HOME_ID) ids.push(Number(f.id)); });
+      return Promise.all([
+        Promise.all(ids.map(function (id) { return api('/faction/' + id + '/members').then(function (d) { return { id: id, members: d.members || [] }; }); })),
+        getJson(TRACKER + '&t=' + Date.now()).catch(function () { return null; }),
+        loadScores()
+      ]).then(function (r) {
+        var all = [];
+        S.factions = {}; S.order = [];
+        r[0].forEach(function (f) {
+          var list = Array.isArray(f.members) ? f.members : Object.keys(f.members).map(function (k) { var x = f.members[k]; x.id = x.id || Number(k); return x; });
+          var score = 0;
+          if (rw) (rw.factions || []).forEach(function (x) { if (Number(x.id) === f.id) score = x.score; });
+          S.factions[f.id] = { id: f.id, name: names[f.id] || ('Faction ' + f.id), members: list, score: score };
+          S.order.push(f.id);
+          all = all.concat(list);
+        });
+        var local = observe(all);
+        S.dep = mergeDep(local, r[1] && r[1].dep);
+        errBox.textContent = '';
+        S.loaded = true;
+        render();
+      });
+    }).catch(function (e) {
+      var msg = e.message || String(e);
+      if (e.code === 2) msg = 'Torn says this API key is incorrect. Check it, or press Forget key and enter it again.';
+      errBox.textContent = 'Could not load data: ' + msg;
+    }).then(function () { S.loading = false; S.nextIn = REFRESH_SECS; });
+  }
+
+  // ---------------------------------------------------------------- render
+  var COLS = {
+    base: [
+      { k: 'name', t: 'Member' }, { k: 'level', t: 'Level', num: 1 }, { k: 'score', t: 'Score', num: 1 },
+      { k: 'status', t: 'Status' }, { k: 'attack', t: 'Attack' }
+    ],
+    abroad: [
+      { k: 'name', t: 'Member' }, { k: 'level', t: 'Level', num: 1 }, { k: 'score', t: 'Score', num: 1 },
+      { k: 'status', t: 'Status' }, { k: 'loc', t: 'Location' }, { k: 'eta', t: 'ETA' }, { k: 'attack', t: 'Attack' }
+    ]
+  };
+  var SECTIONS = [['online', 'Online'], ['idle', 'Idle'], ['offline', 'Offline'], ['abroad', 'Abroad']];
+
+  function scoreOf(m) { return S.scores ? (S.scores[String(m.id)] || 0) : null; }
+  function sortVal(m, k) {
+    switch (k) {
+      case 'name': return String(m.name || '').toLowerCase();
+      case 'level': return m.level || 0;
+      case 'score': var s = scoreOf(m); return s == null ? -1 : s;
+      case 'status': var i = statusInfo(m); return i.rank * 1e7 + i.left;
+      case 'loc': return locText(m).toLowerCase();
+      case 'eta': return etaSort(m);
+      case 'attack': return statusInfo(m).ok ? 1 : 0;
+    }
+    return 0;
+  }
+  function sorted(list, sec) {
+    var s = sortState[sec] || { k: 'score', d: -1 };
+    return list.slice().sort(function (a, b) {
+      var x = sortVal(a, s.k), y = sortVal(b, s.k);
+      var r = x < y ? -1 : x > y ? 1 : 0;
+      if (r === 0) r = String(a.name).localeCompare(String(b.name));
+      else r *= s.d;
+      return r;
+    });
+  }
+  function scoreCell(m) {
+    if (S.scoreState === 'noaccess') return '<span class="na" title="This key has no faction API access">No access</span>';
+    if (S.scoreState === 'nowar') return '<span class="na">-</span>';
+    var s = scoreOf(m);
+    return s == null ? '<span class="na">-</span>' : fmtNum(s, 2);
+  }
+  function row(m, sec) {
+    var i = statusInfo(m), id = m.id;
+    var h = '<tr data-id="' + id + '"' + '>' +
+      '<td><a class="nm" href="https://www.torn.com/profiles.php?XID=' + id + '" target="_blank" rel="noopener">' + esc(m.name) + '</a></td>' +
+      '<td class="num">' + (m.level || '') + '</td>' +
+      '<td class="num">' + scoreCell(m) + '</td>' +
+      '<td><span class="st ' + i.cls + '">' + esc(i.text) + '</span></td>';
+    if (sec === 'abroad') {
+      var p = (m.status && m.status.state === 'Traveling') ? (PLANE[m.status.plane_image_type] || '') : '';
+      h += '<td class="loc">' + esc(locText(m)) + (p ? '<small>' + p + '</small>' : '') + '</td>' +
+           '<td class="eta">' + (m.status && m.status.state === 'Traveling' ? esc(etaText(m)) : '<span class="na">-</span>') + '</td>';
+    }
+    h += '<td><a class="atk' + (i.ok ? '' : ' dim') + '" href="https://www.torn.com/loader.php?sid=attack&amp;user2ID=' + id + '" target="_blank" rel="noopener">Attack</a></td></tr>';
+    return h;
+  }
+  function table(list, sec) {
+    var cols = sec === 'abroad' ? COLS.abroad : COLS.base;
+    var s = sortState[sec] || { k: 'score', d: -1 };
+    var h = '<div class="tw"><table data-sec="' + sec + '"><thead><tr>';
+    cols.forEach(function (c) {
+      h += '<th data-k="' + c.k + '"' + (c.num ? ' class="num"' : '') + '>' + c.t + (s.k === c.k ? '<span class="ar">' + (s.d < 0 ? '▼' : '▲') + '</span>' : '') + '</th>';
+    });
+    h += '</tr></thead><tbody>';
+    if (!list.length) h += '<tr><td class="empty" colspan="' + cols.length + '">No members</td></tr>';
+    else sorted(list, sec).forEach(function (m) { h += row(m, sec); });
+    return h + '</tbody></table></div>';
+  }
+  function warChip() {
+    var w = S.war, n = now();
+    if (!w) return '';
+    if (w.end && w.end > 0 && w.end <= n) return '<span class="chip">War ended</span>';
+    if (w.start > n) return '<span class="chip">Starts in ' + dur(w.start - n) + '</span>';
+    return '<span class="chip live">Live</span>';
+  }
+  function render() {
+    $('board').classList.remove('hidden');
+    var home = S.factions[HOME_ID], oppId = S.order.filter(function (x) { return x !== HOME_ID; })[0];
+    var opp = oppId ? S.factions[oppId] : null;
+    var th = '';
+    th += '<button class="tab home' + (S.tab === 'home' ? ' active' : '') + '" data-tab="home"><div class="tn">' + esc(home ? home.name : 'KitsuLand') + '</div><div class="ts">' + (S.war && home ? fmtNum(home.score) : '-') + '</div></button>';
+    th += '<button class="tab opp' + (S.tab === 'opp' ? ' active' : '') + '" data-tab="opp"><div class="tn">' + (opp ? esc(opp.name) + warChip() : 'Opponent') + '</div><div class="ts">' + (opp ? fmtNum(opp.score) : '-') + '</div></button>';
+    $('tabs').innerHTML = th;
+    var f = S.tab === 'opp' ? opp : home, ph = '';
+    if (!f) ph = '<div class="card empty">No ranked war found for KitsuLand right now.</div>';
+    else {
+      var groups = { online: [], idle: [], offline: [], abroad: [] };
+      f.members.forEach(function (m) { groups[section(m)].push(m); });
+      SECTIONS.forEach(function (s) {
+        ph += '<div class="sec"><div class="sech"><span class="d ' + s[0] + '"></span>' + s[1] + ' <span class="n">(' + groups[s[0]].length + ')</span></div>' + table(groups[s[0]], s[0]) + '</div>';
+      });
+    }
+    $('panel').innerHTML = ph;
+  }
+
+  // Updates countdowns, ETAs and attack links in place every second (no re-render, so clicks are never lost)
+  function tick() {
+    if (!S.loaded) return;
+    var f = S.tab === 'opp' ? S.factions[S.order.filter(function (x) { return x !== HOME_ID; })[0]] : S.factions[HOME_ID];
+    if (!f) return;
+    var byId = {}; f.members.forEach(function (m) { byId[m.id] = m; });
+    var rows = document.querySelectorAll('#panel tr[data-id]');
+    for (var i = 0; i < rows.length; i++) {
+      var m = byId[rows[i].getAttribute('data-id')]; if (!m) continue;
+      var info = statusInfo(m);
+      var st = rows[i].querySelector('.st');
+      if (st && st.textContent !== info.text) { st.textContent = info.text; st.className = 'st ' + info.cls; }
+      var a = rows[i].querySelector('.atk');
+      if (a) a.classList.toggle('dim', !info.ok);
+      var e = rows[i].querySelector('.eta');
+      if (e && m.status && m.status.state === 'Traveling') { var t = etaText(m); if (e.textContent !== t) e.textContent = t; }
+    }
+  }
+
+  // ---------------------------------------------------------------- events
+  document.addEventListener('click', function (ev) {
+    var tab = ev.target.closest('.tab');
+    if (tab) { S.tab = tab.getAttribute('data-tab'); render(); return; }
+    var th = ev.target.closest('th[data-k]');
+    if (th) {
+      var sec = th.closest('table').getAttribute('data-sec'), k = th.getAttribute('data-k');
+      var s = sortState[sec] || { k: 'score', d: -1 };
+      sortState[sec] = s.k === k ? { k: k, d: -s.d } : { k: k, d: -1 };
+      save('kw_sort', sortState); render();
+    }
+  });
+  $('saveKey').addEventListener('click', function () {
+    var k = $('keyInput').value.trim();
+    if (!k) return;
+    S.key = k; save('kw_key', k); $('keyInput').value = '';
+    showKeyState(); loadAll();
+  });
+  $('keyInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('saveKey').click(); });
+  $('forgetKey').addEventListener('click', function () {
+    try { localStorage.removeItem('kw_key'); } catch (e) {}
+    S.key = ''; S.loaded = false; showKeyState();
+    $('board').classList.add('hidden'); $('err').textContent = '';
+  });
+  $('refreshBtn').addEventListener('click', loadAll);
+
+  function showKeyState() {
+    var has = !!S.key;
+    $('keyCard').classList.toggle('hidden', has);
+    $('keySaved').classList.toggle('hidden', !has);
+    $('ctrl').classList.toggle('hidden', !has);
+  }
+
+  setInterval(function () {
+    tick();
+    if (!S.key || S.loading) return;
+    if ($('auto').checked) {
+      S.nextIn--;
+      if (S.nextIn <= 0) loadAll();
+      else $('next').textContent = 'Next update in ' + S.nextIn + 's';
+    } else $('next').textContent = 'Auto-refresh off';
+  }, 1000);
+
+  S.key = load('kw_key', '') || '';
+  showKeyState();
+  if (S.key) loadAll();
+})();
+</script>
+</body>
+</html>
