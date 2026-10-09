@@ -53,6 +53,9 @@
   .keysaved .dot{width:8px;height:8px;border-radius:50%;background:var(--good)}
   .err{background:rgba(217,154,154,.10);border:1px solid rgba(217,154,154,.35);color:#f0c4c4;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px}
   .err:empty{display:none}
+  .warn{background:rgba(226,199,140,.08);border:1px solid rgba(226,199,140,.3);color:#ead9b3;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+  .warn a{color:var(--accent)}
+  .ff1{color:#8ea3d8} .ff2{color:var(--good)} .ff3{color:var(--idle)} .ff4{color:var(--bad)}
   .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
   .tab{flex:1;min-width:160px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;cursor:pointer;text-align:left;color:var(--text)}
   .tab .tn{font:600 15px var(--display)}
@@ -67,7 +70,7 @@
   .sech .n{color:var(--faint);font-weight:500}
   .d.online{background:var(--good)} .d.idle{background:var(--idle)} .d.offline{background:var(--faint)} .d.abroad{background:var(--blue)}
   .tw{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
-  table{width:100%;border-collapse:collapse;min-width:560px}
+  table{width:100%;border-collapse:collapse;min-width:700px}
   th{font:600 11.5px Inter,sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;background:var(--surface2)}
   th:hover{color:var(--text)}
   th .ar{color:var(--accent);margin-left:4px}
@@ -92,8 +95,9 @@
   .empty{color:var(--faint);padding:12px 14px;font-size:13px}
   .na{color:var(--faint)}
   .foot{color:var(--faint);font-size:12px;margin-top:22px;text-align:center}
+  .foot a{color:var(--muted)}
   .hidden{display:none !important}
-  @media (max-width:600px){ h1{font-size:19px} .tab .ts{font-size:20px} .next{min-width:0} td,th{padding:8px 9px} table{min-width:520px} }
+  @media (max-width:600px){ h1{font-size:19px} .tab .ts{font-size:20px} .next{min-width:0} td,th{padding:8px 9px} table{min-width:640px} }
 </style>
 </head>
 <body>
@@ -113,25 +117,27 @@
 
   <div class="card keycard" id="keyCard">
     <h2>Enter your Torn API key</h2>
-    <div class="note">Data comes straight from Torn. Your key is saved only in this browser and is never sent anywhere else.</div>
+    <div class="note">Data comes straight from Torn. Your key is saved only in this browser. It is sent only to Torn, and to FF Scouter for the FF and estimated battle stats.</div>
     <div class="keyrow">
       <input type="text" id="keyInput" name="torn-api-key" placeholder="Your Torn API key" autocomplete="off" autocapitalize="off" spellcheck="false" style="-webkit-text-security:disc">
       <button class="btn primary" id="saveKey">Save key</button>
     </div>
     <div class="note"><b>Public key:</b> shows members, status, hospital timers and travel.</div>
+    <div class="note"><b>FF and Est. stats:</b> your key must be registered at <a href="https://ffscouter.com" target="_blank" rel="noopener">ffscouter.com</a>.</div>
     <div class="note"><b>Limited key with faction API access</b> (KitsuLand members only): also shows each member's live war score.</div>
   </div>
 
-  <div class="keysaved hidden" id="keySaved"><span style="display:flex;align-items:center;gap:8px"><span class="dot"></span><span>Key saved in this browser. Data comes straight from Torn.</span></span><button class="btn ghost" id="forgetKey">Forget key</button></div>
+  <div class="keysaved hidden" id="keySaved"><span style="display:flex;align-items:center;gap:8px"><span class="dot"></span><span>Key saved in this browser. Sent only to Torn and FF Scouter.</span></span><button class="btn ghost" id="forgetKey">Forget key</button></div>
 
   <div class="err" id="err"></div>
+  <div class="warn hidden" id="ffWarn"></div>
 
   <div id="board" class="hidden">
     <div class="tabs" id="tabs"></div>
     <div id="panel"></div>
   </div>
 
-  <div class="foot">ETA is an estimate from the plane type and Torn's flight times. Torn does not share other players' landing times.</div>
+  <div class="foot">ETA is an estimate from the plane type and Torn's flight times. Torn does not share other players' landing times.<br>FF and estimated battle stats come from <a href="https://ffscouter.com" target="_blank" rel="noopener">FF Scouter</a> and are estimates.</div>
 </div>
 
 <script>
@@ -143,6 +149,8 @@
   var API = 'https://api.torn.com/v2';
   var TRACKER = 'https://script.google.com/macros/s/AKfycbxINZrplu6AO46R-l5gpnmYWD95Nr6l02g7bVXvFujByieFa2lpTmGge2xG6AmhRLoD/exec?view=kwdepart';
   var REFRESH_SECS = 30;
+  var FF_API = 'https://ffscouter.com/api/v1/get-stats';
+  var FF_EVERY = 300;   // estimates change slowly: refresh every 5 minutes
 
   // One-way flight minutes from the Torn wiki: [Standard, Airstrip, Private (WLT), Business]
   var COUNTRIES = [
@@ -164,7 +172,8 @@
   // ---------------------------------------------------------------- state
   var S = {
     key: '', war: null, factions: {}, order: [], tab: 'home',
-    scores: null, scoreState: 'none', dep: {}, loading: false, nextIn: 0, loaded: false
+    scores: null, scoreState: 'none', dep: {}, loading: false, nextIn: 0, loaded: false,
+    ff: {}, ffAt: 0, ffState: 'none', ffMsg: ''
   };
   var sortState = load('kw_sort', {}) || {};
 
@@ -354,6 +363,53 @@
     });
   }
 
+
+  // ---------------------------------------------------------------- FF Scouter estimates
+  function loadFF(ids) {
+    var n = now();
+    var missing = ids.filter(function (id) { return !(String(id) in S.ff); });
+    if (S.ffState === 'ok' && n - S.ffAt < FF_EVERY && !missing.length) return Promise.resolve();
+    var batches = [];
+    for (var i = 0; i < ids.length; i += 200) batches.push(ids.slice(i, i + 200));
+    return Promise.all(batches.map(function (b) {
+      return fetch(FF_API + '?key=' + encodeURIComponent(S.key) + '&targets=' + b.join(','), { cache: 'no-store' })
+        .then(function (r) { return r.json(); });
+    })).then(function (res) {
+      var map = {};
+      for (var i = 0; i < res.length; i++) {
+        var d = res[i];
+        if (d && d.error) { var e = new Error(d.error); e.code = d.code; throw e; }
+        var list = Array.isArray(d) ? d : (d && (d.data || d.results)) || [];
+        list.forEach(function (x) { if (x && x.player_id != null) map[String(x.player_id)] = x; });
+      }
+      S.ff = map; S.ffAt = n; S.ffState = 'ok'; S.ffMsg = '';
+    }).catch(function (e) {
+      S.ffState = 'error';
+      S.ffMsg = String(e && e.message || 'FF Scouter did not respond');
+      S.ffAt = n;
+    });
+  }
+  function ffOf(m) { return S.ff[String(m.id)] || null; }
+  function ffCell(m) {
+    var x = ffOf(m);
+    if (!x || x.fair_fight == null) return '<span class="na">-</span>';
+    var f = Number(x.fair_fight), c = f < 2 ? 'ff1' : f < 3.5 ? 'ff2' : f < 4.5 ? 'ff3' : 'ff4';
+    return '<span class="' + c + '">' + f.toFixed(2) + '</span>';
+  }
+  function bsCell(m) {
+    var x = ffOf(m);
+    if (!x || x.bs_estimate == null) return '<span class="na">-</span>';
+    return esc(x.bs_estimate_human || fmtNum(x.bs_estimate));
+  }
+  function showFFWarn() {
+    var w = $('ffWarn');
+    if (S.ffState === 'error') {
+      w.innerHTML = 'FF and estimated stats are not available: ' + esc(S.ffMsg) +
+        '. If your key is not registered yet, register it at <a href="https://ffscouter.com" target="_blank" rel="noopener">ffscouter.com</a>.';
+      w.classList.remove('hidden');
+    } else w.classList.add('hidden');
+  }
+
   // ---------------------------------------------------------------- data load
   function loadAll() {
     if (!S.key || S.loading) return;
@@ -383,8 +439,11 @@
         var local = observe(all);
         S.dep = mergeDep(local, r[1] && r[1].dep);
         errBox.textContent = '';
-        S.loaded = true;
-        render();
+        return loadFF(all.map(function (m) { return m.id; })).then(function () {
+          S.loaded = true;
+          showFFWarn();
+          render();
+        });
       });
     }).catch(function (e) {
       var msg = e.message || String(e);
@@ -396,12 +455,12 @@
   // ---------------------------------------------------------------- render
   var COLS = {
     base: [
-      { k: 'name', t: 'Member' }, { k: 'level', t: 'Level', num: 1 }, { k: 'score', t: 'Score', num: 1 },
-      { k: 'status', t: 'Status' }, { k: 'attack', t: 'Attack' }
+      { k: 'name', t: 'Member' }, { k: 'level', t: 'Level', num: 1 }, { k: 'ff', t: 'FF', num: 1 }, { k: 'bs', t: 'Est. stats', num: 1 },
+      { k: 'score', t: 'Score', num: 1 }, { k: 'status', t: 'Status' }, { k: 'attack', t: 'Attack' }
     ],
     abroad: [
-      { k: 'name', t: 'Member' }, { k: 'level', t: 'Level', num: 1 }, { k: 'score', t: 'Score', num: 1 },
-      { k: 'status', t: 'Status' }, { k: 'loc', t: 'Location' }, { k: 'eta', t: 'ETA' }, { k: 'attack', t: 'Attack' }
+      { k: 'name', t: 'Member' }, { k: 'level', t: 'Level', num: 1 }, { k: 'ff', t: 'FF', num: 1 }, { k: 'bs', t: 'Est. stats', num: 1 },
+      { k: 'score', t: 'Score', num: 1 }, { k: 'status', t: 'Status' }, { k: 'loc', t: 'Location' }, { k: 'eta', t: 'ETA' }, { k: 'attack', t: 'Attack' }
     ]
   };
   var SECTIONS = [['online', 'Online'], ['idle', 'Idle'], ['offline', 'Offline'], ['abroad', 'Abroad']];
@@ -411,6 +470,8 @@
     switch (k) {
       case 'name': return String(m.name || '').toLowerCase();
       case 'level': return m.level || 0;
+      case 'ff': var a = ffOf(m); return a && a.fair_fight != null ? Number(a.fair_fight) : -1;
+      case 'bs': var b = ffOf(m); return b && b.bs_estimate != null ? Number(b.bs_estimate) : -1;
       case 'score': var s = scoreOf(m); return s == null ? -1 : s;
       case 'status': var i = statusInfo(m); return i.rank * 1e7 + i.left;
       case 'loc': return locText(m).toLowerCase();
@@ -440,6 +501,8 @@
     var h = '<tr data-id="' + id + '"' + '>' +
       '<td><a class="nm" href="https://www.torn.com/profiles.php?XID=' + id + '" target="_blank" rel="noopener">' + esc(m.name) + '</a></td>' +
       '<td class="num">' + (m.level || '') + '</td>' +
+      '<td class="num">' + ffCell(m) + '</td>' +
+      '<td class="num">' + bsCell(m) + '</td>' +
       '<td class="num">' + scoreCell(m) + '</td>' +
       '<td><span class="st ' + i.cls + '">' + esc(i.text) + '</span></td>';
     if (sec === 'abroad') {
@@ -529,7 +592,7 @@
   $('keyInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('saveKey').click(); });
   $('forgetKey').addEventListener('click', function () {
     try { localStorage.removeItem('kw_key'); } catch (e) {}
-    S.key = ''; S.loaded = false; showKeyState();
+    S.key = ''; S.loaded = false; S.ff = {}; S.ffAt = 0; S.ffState = 'none'; showFFWarn(); showKeyState();
     $('board').classList.add('hidden'); $('err').textContent = '';
   });
   $('refreshBtn').addEventListener('click', loadAll);
