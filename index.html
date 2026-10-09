@@ -70,7 +70,7 @@
   .sech .n{color:var(--faint);font-weight:500}
   .d.online{background:var(--good)} .d.idle{background:var(--idle)} .d.offline{background:var(--faint)} .d.abroad{background:var(--blue)}
   .tw{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
-  table{width:100%;border-collapse:collapse;min-width:700px}
+  table{width:100%;border-collapse:collapse;min-width:760px;table-layout:fixed}
   th{font:600 11.5px Inter,sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;background:var(--surface2)}
   th:hover{color:var(--text)}
   th .ar{color:var(--accent);margin-left:4px}
@@ -86,8 +86,10 @@
   .st-jail{color:var(--idle);font-weight:600;font-variant-numeric:tabular-nums}
   .st-fly,.st-abroad{color:var(--blue);font-weight:600}
   .st-other{color:var(--muted)}
-  .eta{font-variant-numeric:tabular-nums}
-  .eta small,.loc small{color:var(--faint);display:block;font-size:11px}
+  td{overflow:hidden;text-overflow:ellipsis}
+  td.stc{white-space:normal}
+  .dt{display:block;color:var(--muted);font-size:12px;line-height:1.35}
+  .dt.eta{color:var(--text);font-variant-numeric:tabular-nums}
   .atk{display:inline-block;padding:4px 12px;border-radius:8px;font:600 12px Inter,sans-serif;text-decoration:none;border:1px solid var(--bad);color:#fff;background:rgba(217,154,154,.30)}
   .atk:hover{background:rgba(217,154,154,.5)}
   .atk.dim{opacity:.38;border-color:var(--border2);background:transparent;color:var(--muted)}
@@ -97,7 +99,7 @@
   .foot{color:var(--faint);font-size:12px;margin-top:22px;text-align:center}
   .foot a{color:var(--muted)}
   .hidden{display:none !important}
-  @media (max-width:600px){ h1{font-size:19px} .tab .ts{font-size:20px} .next{min-width:0} td,th{padding:8px 9px} table{min-width:640px} }
+  @media (max-width:600px){ h1{font-size:19px} .tab .ts{font-size:20px} .next{min-width:0} td,th{padding:8px 9px} table{min-width:720px} }
 </style>
 </head>
 <body>
@@ -453,16 +455,12 @@
   }
 
   // ---------------------------------------------------------------- render
-  var COLS = {
-    base: [
-      { k: 'name', t: 'Member' }, { k: 'level', t: 'Level', num: 1 }, { k: 'ff', t: 'FF', num: 1 }, { k: 'bs', t: 'Est. stats', num: 1 },
-      { k: 'score', t: 'Score', num: 1 }, { k: 'status', t: 'Status' }, { k: 'attack', t: 'Attack' }
-    ],
-    abroad: [
-      { k: 'name', t: 'Member' }, { k: 'level', t: 'Level', num: 1 }, { k: 'ff', t: 'FF', num: 1 }, { k: 'bs', t: 'Est. stats', num: 1 },
-      { k: 'score', t: 'Score', num: 1 }, { k: 'status', t: 'Status' }, { k: 'loc', t: 'Location' }, { k: 'eta', t: 'ETA' }, { k: 'attack', t: 'Attack' }
-    ]
-  };
+  // Same columns and widths in every section, so all tables line up
+  var COLS = [
+    { k: 'name', t: 'Member', w: '20%' }, { k: 'level', t: 'Level', num: 1, w: '7%' }, { k: 'ff', t: 'FF', num: 1, w: '7%' },
+    { k: 'bs', t: 'Est. stats', num: 1, w: '10%' }, { k: 'score', t: 'Score', num: 1, w: '9%' },
+    { k: 'status', t: 'Status', w: '36%' }, { k: 'attack', t: 'Attack', w: '11%' }
+  ];
   var SECTIONS = [['online', 'Online'], ['idle', 'Idle'], ['offline', 'Offline'], ['abroad', 'Abroad']];
 
   function scoreOf(m) { return S.scores ? (S.scores[String(m.id)] || 0) : null; }
@@ -473,9 +471,7 @@
       case 'ff': var a = ffOf(m); return a && a.fair_fight != null ? Number(a.fair_fight) : -1;
       case 'bs': var b = ffOf(m); return b && b.bs_estimate != null ? Number(b.bs_estimate) : -1;
       case 'score': var s = scoreOf(m); return s == null ? -1 : s;
-      case 'status': var i = statusInfo(m); return i.rank * 1e7 + i.left;
-      case 'loc': return locText(m).toLowerCase();
-      case 'eta': return etaSort(m);
+      case 'status': var i = statusInfo(m); return i.rank * 1e7 + (m.status && m.status.state === 'Traveling' ? Math.min(etaSort(m), 9e6) : i.left);
       case 'attack': return statusInfo(m).ok ? 1 : 0;
     }
     return 0;
@@ -504,19 +500,27 @@
       '<td class="num">' + ffCell(m) + '</td>' +
       '<td class="num">' + bsCell(m) + '</td>' +
       '<td class="num">' + scoreCell(m) + '</td>' +
-      '<td><span class="st ' + i.cls + '">' + esc(i.text) + '</span></td>';
-    if (sec === 'abroad') {
-      var p = (m.status && m.status.state === 'Traveling') ? (PLANE[m.status.plane_image_type] || '') : '';
-      h += '<td class="loc">' + esc(locText(m)) + (p ? '<small>' + p + '</small>' : '') + '</td>' +
-           '<td class="eta">' + (m.status && m.status.state === 'Traveling' ? esc(etaText(m)) : '<span class="na">-</span>') + '</td>';
-    }
+      '<td class="stc"><span class="st ' + i.cls + '">' + esc(i.text) + '</span>' + detail(m) + '</td>';
     h += '<td><a class="atk' + (i.ok ? '' : ' dim') + '" href="https://www.torn.com/loader.php?sid=attack&amp;user2ID=' + id + '" target="_blank" rel="noopener">Attack</a></td></tr>';
     return h;
   }
+  // Second line in the Status cell: where they are, route and plane, and the landing estimate
+  function detail(m) {
+    var st = m.status || {};
+    if (st.state === 'Traveling') {
+      var p = PLANE[st.plane_image_type] || '';
+      return '<span class="dt">' + esc(locText(m)) + (p ? ' \u00b7 ' + p : '') + '</span><span class="dt eta">' + esc(etaText(m)) + '</span>';
+    }
+    if (st.state === 'Abroad' || hospAbroad(st)) return '<span class="dt">In ' + esc(locText(m)) + '</span>';
+    return '';
+  }
   function table(list, sec) {
-    var cols = sec === 'abroad' ? COLS.abroad : COLS.base;
+    var cols = COLS;
     var s = sortState[sec] || { k: 'score', d: -1 };
-    var h = '<div class="tw"><table data-sec="' + sec + '"><thead><tr>';
+    if (s.k === 'loc' || s.k === 'eta') s = sortState[sec] = { k: 'status', d: 1 };
+    var h = '<div class="tw"><table data-sec="' + sec + '"><colgroup>';
+    cols.forEach(function (c) { h += '<col style="width:' + c.w + '">'; });
+    h += '</colgroup><thead><tr>';
     cols.forEach(function (c) {
       h += '<th data-k="' + c.k + '"' + (c.num ? ' class="num"' : '') + '>' + c.t + (s.k === c.k ? '<span class="ar">' + (s.d < 0 ? '▼' : '▲') + '</span>' : '') + '</th>';
     });
@@ -567,7 +571,7 @@
       var a = rows[i].querySelector('.atk');
       if (a) a.classList.toggle('dim', !info.ok);
       var e = rows[i].querySelector('.eta');
-      if (e && m.status && m.status.state === 'Traveling') { var t = etaText(m); if (e.textContent !== t) e.textContent = t; }
+      if (e) { var t = etaText(m); if (e.textContent !== t) e.textContent = t; }
     }
   }
 
