@@ -717,7 +717,7 @@
   var H = { view: ['history', 'intel'].indexOf(load('kw_view', 'board')) >= 0 ? load('kw_view', 'board') : 'board', side: 'home', lists: {}, listLoading: {}, rep: load('kw_hist_rep2', {}) || {}, queue: [], busy: false, shellKey: null,
     other: { q: '', results: null, loading: false, err: '', picked: null } };
   var YEAR = 365 * 86400;
-  try { localStorage.removeItem('kw_hist_rep'); } catch (e) {}
+  try { localStorage.removeItem('kw_hist_rep'); localStorage.removeItem('kw_intel_ws'); } catch (e) {}
   var TIERS = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
   // Higher number = higher rank. Within a tier, division I is the highest.
   function tierVal(t) {
@@ -925,7 +925,7 @@
   // and each member's score in the opponent's last 5 ranked wars.
   var PS_KEYS = ['rankedwarhits', 'energydrinkused', 'xantaken', 'networth', 'bestdamage', 'refills'];
   var PS_FRESH = 6 * 3600;
-  var I = { ps: load('kw_intel_ps', {}) || {}, ws: load('kw_intel_ws', {}) || {}, queue: [], busy: false, sort: load('kw_intel_sort', null) || { k: 'bs', d: -1 } };
+  var I = { ps: load('kw_intel_ps', {}) || {}, ws: load('kw_intel_ws2', {}) || {}, queue: [], busy: false, sort: load('kw_intel_sort', null) || { k: 'bs', d: -1 } };
 
   function shortNum(n) {
     n = Number(n); var a = Math.abs(n);
@@ -960,11 +960,12 @@
           r.factions.forEach(function (f) {
             var m = f.members || [];
             if (!Array.isArray(m)) m = Object.keys(m).map(function (k) { var x = m[k]; x.id = x.id || Number(k); return x; });
-            m.forEach(function (x) { sc[x.id] = Number(x.score || 0); });
+            // Members who made no attacks in that war count as not in it (X), as in the Factsheet
+            m.forEach(function (x) { if (Number(x.attacks || 0) > 0) sc[x.id] = Number(x.score || 0); });
             var rk = f.rank || {};
             out[f.id] = { n: m.length, hit: m.filter(function (x) { return Number(x.attacks || 0) > 0; }).length, rb: rk.before || '', ra: rk.after || '' };
           });
-          I.ws[job.id] = sc; save('kw_intel_ws', I.ws);
+          I.ws[job.id] = sc; save('kw_intel_ws2', I.ws);
           if (!H.rep[job.id]) { H.rep[job.id] = out; save('kw_hist_rep2', H.rep); }
         })
       : api('/user/' + job.id + '/personalstats', 'stat=' + PS_KEYS.join(',')).then(function (d) {
@@ -1097,7 +1098,7 @@
       h += '<div class="ca"><button class="btn ghost" data-colall="1">Show all</button><button class="btn ghost" data-colclose="1">Done</button></div></div>';
     }
     h += '<div class="legend"><span><i style="background:#fbe2d5"></i>Billions or more</span><span><i style="background:#d9d9d9"></i>Millions</span>' +
-      '<span><i style="background:#caedfb"></i>Thousands</span><span><i style="background:#daf2d0"></i>Under 1K</span><span style="color:#ff6b6b;font-weight:700">Red: war score or Points Scored above 500, or X (not in that war)</span></div>';
+      '<span><i style="background:#caedfb"></i>Thousands</span><span><i style="background:#daf2d0"></i>Under 1K</span><span style="color:#ff6b6b;font-weight:700">Red: war score or Points Scored above 500, or X (no hits in that war)</span></div>';
     // group header row with colspans from the visible columns
     var gh = '', run = null, span = 0;
     cols.concat([{ grp: null }]).forEach(function (c) {
@@ -1124,7 +1125,7 @@
       h += '</tr>';
     });
     h += '</tbody></table></div>';
-    h += '<div class="hint">Personal stats come from Torn and refresh every 6 hours. Estimated Stats come from FF Scouter and are estimates. War scores are from Torn’s war reports; X means the member was not in that war. Hover a war date to see the opponent.</div>';
+    h += '<div class="hint">Personal stats come from Torn and refresh every 6 hours. Estimated Stats come from FF Scouter and are estimates. War scores are from Torn’s war reports; X means the member made no hits in that war. Hover a war date to see the opponent.</div>';
     var tw = box.querySelector('.itw'), sx = tw ? tw.scrollLeft : 0;
     box.innerHTML = h;
     var nw = box.querySelector('.itw'); if (nw) nw.scrollLeft = sx;
