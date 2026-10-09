@@ -54,7 +54,11 @@
   .err{background:rgba(217,154,154,.10);border:1px solid rgba(217,154,154,.35);color:#f0c4c4;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px}
   .err:empty{display:none}
   .warn{background:rgba(226,199,140,.08);border:1px solid rgba(226,199,140,.3);color:#ead9b3;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px}
-  .warn a{color:var(--accent)}
+  .warn a,.tip a{color:var(--accent)}
+  .warn b{color:#f3e4c2}
+  .tip{background:rgba(226,199,140,.08);border:1px solid rgba(226,199,140,.3);color:#ead9b3;border-radius:12px;padding:10px 14px;margin:10px 0 6px;font-size:12.5px}
+  .tip b{color:#f3e4c2}
+  .tip ol,.warn ol{margin:6px 0 6px 18px;padding:0}
   .ff1{color:#8ea3d8} .ff2{color:var(--good)} .ff3{color:var(--idle)} .ff4{color:var(--bad)}
   .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
   .tab{flex:1;min-width:160px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;cursor:pointer;text-align:left;color:var(--text)}
@@ -125,17 +129,17 @@
       <button class="btn primary" id="saveKey">Save key</button>
     </div>
     <div class="note"><b>Public key:</b> shows members, status, hospital timers and travel.</div>
-    <div class="note"><b>FF and Est. stats:</b> your key must be registered at <a href="https://ffscouter.com" target="_blank" rel="noopener">ffscouter.com</a>.</div>
+    <div class="tip"><b>Want FF and Est. stats?</b> Your key must be registered with FF Scouter first:<ol><li>Go to <a href="https://ffscouter.com" target="_blank" rel="noopener">ffscouter.com</a> and submit your Torn API key there.</li><li>Come back here and press Refresh.</li></ol>Without it, everything else still works and those two columns show "-".</div>
     <div class="note"><b>Limited key with faction API access</b> (KitsuLand members only): also shows each member's live war score.</div>
   </div>
 
   <div class="keysaved hidden" id="keySaved"><span style="display:flex;align-items:center;gap:8px"><span class="dot"></span><span>Key saved in this browser. Sent only to Torn and FF Scouter.</span></span><button class="btn ghost" id="forgetKey">Forget key</button></div>
 
   <div class="err" id="err"></div>
-  <div class="warn hidden" id="ffWarn"></div>
 
   <div id="board" class="hidden">
     <div class="tabs" id="tabs"></div>
+    <div class="warn hidden" id="ffWarn"></div>
     <div id="panel"></div>
   </div>
 
@@ -406,8 +410,9 @@
   function showFFWarn() {
     var w = $('ffWarn');
     if (S.ffState === 'error') {
-      w.innerHTML = 'FF and estimated stats are not available: ' + esc(S.ffMsg) +
-        '. If your key is not registered yet, register it at <a href="https://ffscouter.com" target="_blank" rel="noopener">ffscouter.com</a>.';
+      w.innerHTML = '<b>FF and Est. stats are not showing.</b> FF Scouter says: ' + esc(S.ffMsg) + '.' +
+        '<ol><li>Go to <a href="https://ffscouter.com" target="_blank" rel="noopener">ffscouter.com</a> and submit your Torn API key there.</li>' +
+        '<li>Come back here and press Refresh.</li></ol>';
       w.classList.remove('hidden');
     } else w.classList.add('hidden');
   }
