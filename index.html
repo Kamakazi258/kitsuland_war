@@ -103,6 +103,39 @@
   .foot{color:var(--faint);font-size:12px;margin-top:22px;text-align:center}
   .foot a{color:var(--muted)}
   .hidden{display:none !important}
+  .me-id{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:6px 12px;font-size:13px;color:var(--muted)}
+  .me-id b{color:var(--text);font:600 14px var(--display)}
+  .me-id .pid{color:var(--accent);font:600 14px var(--display);font-variant-numeric:tabular-nums}
+  .menu{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px}
+  .menu button{background:none;border:0;color:var(--muted);font:600 15px var(--display);padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .menu button.active{color:var(--text);border-bottom-color:var(--accent)}
+  .menu button:hover{color:var(--text)}
+  .toggle{display:inline-flex;background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:3px;margin-bottom:14px}
+  .toggle button{background:none;border:0;color:var(--muted);font:600 13.5px Inter,sans-serif;padding:7px 18px;border-radius:9px;cursor:pointer}
+  .toggle button.active{background:var(--accent);color:#1a1020}
+  .tally{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .tally .card{padding:12px 14px}
+  .tally .k{color:var(--muted);font-size:12px}
+  .tally .v{font:700 22px var(--display)}
+  .war{display:grid;grid-template-columns:110px 1fr 150px 150px 70px;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:8px}
+  .war .date{color:var(--muted);font-size:12.5px;line-height:1.35}
+  .war .vs{font:600 15px var(--display);min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .war .vs a{text-decoration:none} .war .vs a:hover{color:var(--accent)}
+  .war .lbl{display:block;color:var(--faint);font:500 11px Inter,sans-serif;text-transform:uppercase;letter-spacing:.4px}
+  .war .score,.war .mem{font:600 15px var(--display);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+  .war .them{color:var(--muted)}
+  .war .sm{display:block;color:var(--muted);font:500 12px Inter,sans-serif}
+  .badge{font:700 12px Inter,sans-serif;text-align:center;border-radius:8px;padding:4px 0}
+  .badge.win{background:rgba(135,201,166,.15);color:var(--good)}
+  .badge.loss{background:rgba(217,154,154,.15);color:var(--bad)}
+  .badge.live{background:rgba(226,199,140,.15);color:var(--idle)}
+  .hint{color:var(--faint);font-size:12px;margin-top:10px}
+  @media (max-width:760px){
+    .war{grid-template-columns:1fr auto;gap:6px 12px}
+    .war .date{grid-column:1;grid-row:1} .war .badge{grid-column:2;grid-row:1;width:60px;justify-self:end}
+    .war .vs{grid-column:1/3} .war .mem,.war .score{text-align:left}
+    .tally .v{font-size:19px}
+  }
   @media (max-width:600px){ h1{font-size:19px} .tab .ts{font-size:20px} .next{min-width:0} td,th{padding:8px 9px} table{min-width:720px} }
 </style>
 </head>
@@ -114,6 +147,7 @@
       <div><h1>KitsuLand War</h1><div class="sub">Live ranked war board</div></div>
     </div>
     <div class="spacer"></div>
+    <div class="me-id hidden" id="meId"></div>
     <div class="ctrl" id="ctrl">
       <label class="switch" title="Update every 30 seconds"><input type="checkbox" id="auto" checked><span class="knob"></span>Auto-refresh</label>
       <span class="next" id="next"></span>
@@ -135,6 +169,11 @@
 
   <div class="keysaved hidden" id="keySaved"><span style="display:flex;align-items:center;gap:8px"><span class="dot"></span><span>Key saved in this browser. Sent only to Torn and FF Scouter.</span></span><button class="btn ghost" id="forgetKey">Forget key</button></div>
 
+  <nav class="menu hidden" id="menu">
+    <button data-view="board">War Board</button>
+    <button data-view="history">War History</button>
+  </nav>
+
   <div class="err" id="err"></div>
 
   <div id="board" class="hidden">
@@ -144,7 +183,9 @@
     <div id="panel"></div>
   </div>
 
-  <div class="foot">ETA is an estimate from the plane type and Torn's flight times. Torn does not share other players' landing times.<br>FF and estimated battle stats come from <a href="https://ffscouter.com" target="_blank" rel="noopener">FF Scouter</a> and are estimates.</div>
+  <div id="history" class="hidden"></div>
+
+  <div class="foot" id="foot">ETA is an estimate from the plane type and Torn's flight times. Torn does not share other players' landing times.<br>FF and estimated battle stats come from <a href="https://ffscouter.com" target="_blank" rel="noopener">FF Scouter</a> and are estimates.</div>
 </div>
 
 <script>
@@ -443,8 +484,19 @@
   }
 
   // ---------------------------------------------------------------- data load
+  // The person viewing the page, from their own key
+  function loadMe() {
+    if (!S.key || S.me) return;
+    api('/user/basic').then(function (d) {
+      var p = d && d.profile; if (!p) return;
+      S.me = { id: p.id, name: p.name };
+      $('meId').innerHTML = 'Viewing as <b>' + esc(p.name) + '</b><span class="pid">[' + p.id + ']</span>';
+      $('meId').classList.remove('hidden');
+    }).catch(function () {});
+  }
   function loadAll() {
     if (!S.key || S.loading) return;
+    loadMe();
     S.loading = true; S.nextIn = REFRESH_SECS; $('next').textContent = 'Updating...';
     var errBox = $('err');
     api('/faction/' + HOME_ID + '/wars').then(function (w) {
@@ -475,6 +527,7 @@
           S.loaded = true;
           showFFWarn(); showScoreWarn();
           render();
+          if (H.view === 'history') renderHistory();
         });
       });
     }).catch(function (e) {
@@ -567,7 +620,7 @@
     return '<span class="chip live">Live</span>';
   }
   function render() {
-    $('board').classList.remove('hidden');
+    $('board').classList.toggle('hidden', H.view !== 'board');
     var home = S.factions[HOME_ID], oppId = S.order.filter(function (x) { return x !== HOME_ID; })[0];
     var opp = oppId ? S.factions[oppId] : null;
     var th = '';
@@ -605,8 +658,124 @@
     }
   }
 
+
+  // ---------------------------------------------------------------- war history
+  // Ranked wars from the past 12 months for KitsuLand or the current opponent.
+  // Member counts come from each war's report; ended wars never change, so they are kept in this browser.
+  var H = { view: load('kw_view', 'board') === 'history' ? 'history' : 'board', side: 'home', lists: {}, listLoading: {}, rep: load('kw_hist_rep', {}) || {}, queue: [], busy: false };
+  var YEAR = 365 * 86400;
+
+  function oppId() {
+    var w = S.war; if (!w) return null;
+    var o = (w.factions || []).filter(function (f) { return Number(f.id) !== HOME_ID; })[0];
+    return o ? Number(o.id) : null;
+  }
+  function oppName() {
+    var w = S.war, id = oppId(); if (!id) return 'Opponent';
+    var o = (w.factions || []).filter(function (f) { return Number(f.id) === id; })[0];
+    return o ? o.name : 'Opponent';
+  }
+  function histFid() { var o = oppId(); return H.side === 'opp' && o ? o : HOME_ID; }
+  function fmtDate(t) { return new Date(t * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+
+  function setView(v) {
+    H.view = v; save('kw_view', v);
+    var btns = document.querySelectorAll('#menu button');
+    for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', btns[i].getAttribute('data-view') === v);
+    $('board').classList.toggle('hidden', v !== 'board' || !S.loaded);
+    $('history').classList.toggle('hidden', v !== 'history');
+    $('foot').classList.toggle('hidden', v !== 'board');
+    if (v === 'history') renderHistory();
+  }
+
+  function loadList(fid) {
+    if (H.listLoading[fid]) return;
+    H.listLoading[fid] = true;
+    api('/faction/' + fid + '/rankedwars', 'limit=100').then(function (d) {
+      var cut = now() - YEAR;
+      var wars = (d.rankedwars || []).filter(function (w) { return w.start >= cut; });
+      wars.sort(function (a, b) { return b.start - a.start; });
+      H.lists[fid] = { wars: wars, err: '' };
+      wars.forEach(function (w) {
+        if (w.end && w.end <= now() && !H.rep[w.id] && H.queue.indexOf(w.id) < 0) H.queue.push(w.id);
+      });
+      pump();
+    }).catch(function (e) {
+      H.lists[fid] = { wars: [], err: e.message || String(e) };
+    }).then(function () { H.listLoading[fid] = false; if (H.view === 'history') renderHistory(); });
+  }
+
+  // One war report at a time, spaced out so the live board keeps working within Torn's rate limit
+  function pump() {
+    if (H.busy || !H.queue.length || !S.key) return;
+    H.busy = true;
+    var id = H.queue.shift(), wait = 1300;
+    api('/faction/' + id + '/rankedwarreport').then(function (d) {
+      var r = d && d.rankedwarreport, out = {};
+      if (!r || !r.factions) return;
+      r.factions.forEach(function (f) {
+        var m = f.members || [];
+        if (!Array.isArray(m)) m = Object.keys(m).map(function (k) { return m[k]; });
+        out[f.id] = { n: m.length, hit: m.filter(function (x) { return Number(x.attacks || 0) > 0; }).length };
+      });
+      H.rep[id] = out; save('kw_hist_rep', H.rep);
+    }).catch(function (e) {
+      if (e.code === 5) { H.queue.unshift(id); wait = 30000; }
+    }).then(function () {
+      H.busy = false;
+      if (H.view === 'history') renderHistory();
+      setTimeout(pump, wait);
+    });
+  }
+
+  function renderHistory() {
+    var box = $('history');
+    if (!S.loaded) { box.innerHTML = '<div class="card empty">Loading...</div>'; return; }
+    var o = oppId();
+    if (!o) H.side = 'home';
+    var fid = histFid();
+    var h = '<div class="toggle"><button data-side="home"' + (H.side === 'home' ? ' class="active"' : '') + '>KitsuLand</button>';
+    if (o) h += '<button data-side="opp"' + (H.side === 'opp' ? ' class="active"' : '') + '>' + esc(oppName()) + '</button>';
+    h += '</div>';
+    var L = H.lists[fid];
+    if (!L) { loadList(fid); box.innerHTML = h + '<div class="card empty">Loading war history...</div>'; return; }
+    if (L.err) { box.innerHTML = h + '<div class="err">Could not load war history: ' + esc(L.err) + '</div>'; return; }
+
+    var wins = 0, losses = 0, rows = '', n = now();
+    L.wars.forEach(function (w) {
+      var me = null, them = null;
+      (w.factions || []).forEach(function (f) { if (Number(f.id) === fid) me = f; else them = f; });
+      if (!me || !them) return;
+      var ended = w.end && w.end <= n, win = Number(w.winner) === fid;
+      if (ended) { if (win) wins++; else losses++; }
+      var badge = !ended ? '<div class="badge live">LIVE</div>' : '<div class="badge ' + (win ? 'win' : 'loss') + '">' + (win ? 'WIN' : 'LOSS') + '</div>';
+      var r = H.rep[w.id], mem;
+      if (r && r[me.id] && r[them.id]) {
+        mem = '<span class="lbl">Members</span>' + r[me.id].n + ' <span class="them">: ' + r[them.id].n + '</span>' +
+          '<span class="sm">' + r[me.id].hit + ' : ' + r[them.id].hit + ' made hits</span>';
+      } else {
+        mem = '<span class="lbl">Members</span><span class="them">' + (ended ? 'Loading...' : 'After war ends') + '</span>';
+      }
+      rows += '<div class="war"><div class="date">' + fmtDate(w.start) + '<br>' + (ended ? 'to ' + fmtDate(w.end) : 'in progress') + '</div>' +
+        '<div class="vs">vs <a href="https://www.torn.com/factions.php?step=profile&amp;ID=' + them.id + '" target="_blank" rel="noopener">' + esc(them.name) + '</a></div>' +
+        '<div class="mem">' + mem + '</div>' +
+        '<div class="score"><span class="lbl">Score</span>' + fmtNum(me.score) + ' <span class="them">: ' + fmtNum(them.score) + '</span></div>' +
+        badge + '</div>';
+    });
+    h += '<div class="tally"><div class="card"><div class="k">Wars (12 months)</div><div class="v">' + L.wars.length + '</div></div>' +
+      '<div class="card"><div class="k">Wins</div><div class="v" style="color:var(--good)">' + wins + '</div></div>' +
+      '<div class="card"><div class="k">Losses</div><div class="v" style="color:var(--bad)">' + losses + '</div></div></div>';
+    h += rows || '<div class="card empty">No ranked wars in the past 12 months.</div>';
+    h += '<div class="hint">Ranked wars from the past 12 months, newest first. Members counts everyone in each faction during the war; made hits counts those with at least one attack.</div>';
+    box.innerHTML = h;
+  }
+
   // ---------------------------------------------------------------- events
   document.addEventListener('click', function (ev) {
+    var mb = ev.target.closest('#menu button');
+    if (mb) { setView(mb.getAttribute('data-view')); return; }
+    var sb = ev.target.closest('#history .toggle button');
+    if (sb) { H.side = sb.getAttribute('data-side'); renderHistory(); return; }
     var tab = ev.target.closest('.tab');
     if (tab) { S.tab = tab.getAttribute('data-tab'); render(); return; }
     var th = ev.target.closest('th[data-k]');
@@ -626,16 +795,21 @@
   $('keyInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('saveKey').click(); });
   $('forgetKey').addEventListener('click', function () {
     try { localStorage.removeItem('kw_key'); } catch (e) {}
-    S.key = ''; S.loaded = false; S.ff = {}; S.ffAt = 0; S.ffState = 'none'; S.scoreState = 'none'; showFFWarn(); showScoreWarn(); showKeyState();
-    $('board').classList.add('hidden'); $('err').textContent = '';
+    S.key = ''; S.me = null; $('meId').classList.add('hidden'); S.loaded = false; S.ff = {}; S.ffAt = 0; S.ffState = 'none'; S.scoreState = 'none'; showFFWarn(); showScoreWarn(); showKeyState();
+    $('board').classList.add('hidden'); $('history').classList.add('hidden'); $('err').textContent = '';
   });
-  $('refreshBtn').addEventListener('click', loadAll);
+  $('refreshBtn').addEventListener('click', function () {
+    if (H.view === 'history') { delete H.lists[histFid()]; renderHistory(); }
+    loadAll();
+  });
 
   function showKeyState() {
     var has = !!S.key;
     $('keyCard').classList.toggle('hidden', has);
     $('keySaved').classList.toggle('hidden', !has);
     $('ctrl').classList.toggle('hidden', !has);
+    $('menu').classList.toggle('hidden', !has);
+    if (has) setView(H.view);
   }
 
   setInterval(function () {
