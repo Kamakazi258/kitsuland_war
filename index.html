@@ -129,6 +129,9 @@
   .badge.win{background:rgba(135,201,166,.15);color:var(--good)}
   .badge.loss{background:rgba(217,154,154,.15);color:var(--bad)}
   .badge.live{background:rgba(226,199,140,.15);color:var(--idle)}
+  a.badge{display:block;text-decoration:none;border:1px solid transparent;transition:.15s}
+  a.badge:hover{border-color:currentColor;filter:brightness(1.15)}
+  a.badge .go{font-size:10px;margin-left:3px;opacity:.75}
   .hint{color:var(--faint);font-size:12px;margin-top:10px}
   .tiers{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:5px;font:500 12px Inter,sans-serif}
   .tier{display:inline-block;font:700 11px Inter,sans-serif;letter-spacing:.3px;border-radius:6px;padding:2px 7px;border:1px solid currentColor;background:rgba(255,255,255,.03)}
@@ -795,7 +798,10 @@
       if (!me || !them) return;
       var ended = w.end && w.end <= n, win = Number(w.winner) === fid;
       if (ended) { if (win) wins++; else losses++; }
-      var badge = !ended ? '<div class="badge live">LIVE</div>' : '<div class="badge ' + (win ? 'win' : 'loss') + '">' + (win ? 'WIN' : 'LOSS') + '</div>';
+      var go = '<span class="go">\u2197</span>';
+      var badge = !ended
+        ? '<a class="badge live" href="https://www.torn.com/factions.php?step=profile&amp;ID=' + fid + '#/war/rank" target="_blank" rel="noopener" title="Open the live war on Torn">LIVE' + go + '</a>'
+        : '<a class="badge ' + (win ? 'win' : 'loss') + '" href="https://www.torn.com/war.php?step=rankreport&amp;rankID=' + w.id + '" target="_blank" rel="noopener" title="Open the war report on Torn">' + (win ? 'WIN' : 'LOSS') + go + '</a>';
       var r = H.rep[w.id], mem, tiers = '';
       if (r && r[me.id] && r[them.id]) {
         var a = r[me.id], o = r[them.id];
