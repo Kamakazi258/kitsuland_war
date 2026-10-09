@@ -135,6 +135,18 @@
   .t-bronze{color:#c99a6e} .t-silver{color:#c3c6d4} .t-gold{color:#e6c870} .t-platinum{color:#9fd8d3} .t-diamond{color:#a9bdf5} .t-none{color:var(--faint)}
   .tup{color:var(--good);font-weight:700} .tdown{color:var(--bad);font-weight:700}
   .otier{color:var(--faint)}
+  .hsearch{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .hsearch input{flex:1;min-width:200px;background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;font:14px Inter,sans-serif}
+  .fres{display:grid;grid-template-columns:1fr auto;gap:2px 14px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:8px;color:var(--text);cursor:pointer;font:14px Inter,sans-serif}
+  .fres:hover{border-color:var(--accent)}
+  .fres .fn{font:600 15px var(--display)}
+  .fres .fn .tg{color:var(--accent);font-size:12.5px;margin-left:6px}
+  .fres .fm{color:var(--muted);font-size:12.5px;text-align:right}
+  .fres .fs{color:var(--faint);font-size:12px}
+  .picked{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .picked .pn{font:700 18px var(--display)}
+  .picked .pn a{text-decoration:none} .picked .pn a:hover{color:var(--accent)}
+  .picked .pid{color:var(--faint);font-size:13px}
   @media (max-width:760px){
     .war{grid-template-columns:1fr auto;gap:6px 12px}
     .war .date{grid-column:1;grid-row:1} .war .badge{grid-column:2;grid-row:1;width:60px;justify-self:end}
@@ -667,7 +679,8 @@
   // ---------------------------------------------------------------- war history
   // Ranked wars from the past 12 months for KitsuLand or the current opponent.
   // Member counts come from each war's report; ended wars never change, so they are kept in this browser.
-  var H = { view: load('kw_view', 'board') === 'history' ? 'history' : 'board', side: 'home', lists: {}, listLoading: {}, rep: load('kw_hist_rep2', {}) || {}, queue: [], busy: false };
+  var H = { view: load('kw_view', 'board') === 'history' ? 'history' : 'board', side: 'home', lists: {}, listLoading: {}, rep: load('kw_hist_rep2', {}) || {}, queue: [], busy: false, shellKey: null,
+    other: { q: '', results: null, loading: false, err: '', picked: null } };
   var YEAR = 365 * 86400;
   try { localStorage.removeItem('kw_hist_rep'); } catch (e) {}
   var TIERS = ['bronze', 'silver', 'gold', 'platinum', 'diamond'];
@@ -693,7 +706,11 @@
     var o = (w.factions || []).filter(function (f) { return Number(f.id) === id; })[0];
     return o ? o.name : 'Opponent';
   }
-  function histFid() { var o = oppId(); return H.side === 'opp' && o ? o : HOME_ID; }
+  function histFid() {
+    if (H.side === 'opp') return oppId();
+    if (H.side === 'other') return H.other.picked ? H.other.picked.id : null;
+    return HOME_ID;
+  }
   function fmtDate(t) { return new Date(t * 1000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
 
   function setView(v) {
@@ -714,9 +731,9 @@
       var wars = (d.rankedwars || []).filter(function (w) { return w.start >= cut; });
       wars.sort(function (a, b) { return b.start - a.start; });
       H.lists[fid] = { wars: wars, err: '' };
-      wars.forEach(function (w) {
-        if (w.end && w.end <= now() && !H.rep[w.id] && H.queue.indexOf(w.id) < 0) H.queue.push(w.id);
-      });
+      var need = [];
+      wars.forEach(function (w) { if (w.end && w.end <= now() && !H.rep[w.id]) need.push(w.id); });
+      H.queue = need.concat(H.queue.filter(function (id) { return need.indexOf(id) < 0; }));
       pump();
     }).catch(function (e) {
       H.lists[fid] = { wars: [], err: e.message || String(e) };
@@ -747,19 +764,30 @@
     });
   }
 
-  function renderHistory() {
-    var box = $('history');
-    if (!S.loaded) { box.innerHTML = '<div class="card empty">Loading...</div>'; return; }
-    var o = oppId();
-    if (!o) H.side = 'home';
-    var fid = histFid();
-    var h = '<div class="toggle"><button data-side="home"' + (H.side === 'home' ? ' class="active"' : '') + '>KitsuLand</button>';
-    if (o) h += '<button data-side="opp"' + (H.side === 'opp' ? ' class="active"' : '') + '>' + esc(oppName()) + '</button>';
-    h += '</div>';
-    var L = H.lists[fid];
-    if (!L) { loadList(fid); box.innerHTML = h + '<div class="card empty">Loading war history...</div>'; return; }
-    if (L.err) { box.innerHTML = h + '<div class="err">Could not load war history: ' + esc(L.err) + '</div>'; return; }
+  function searchFactions() {
+    var q = H.other.q.trim();
+    if (!q) return;
+    H.other.loading = true; H.other.err = ''; H.other.results = null; H.other.picked = null;
+    renderHistory();
+    var p = /^\d+$/.test(q)
+      ? api('/faction/' + q + '/basic').then(function (d) {
+          var b = d.basic; if (!b || !b.id) return [];
+          return [{ id: b.id, name: b.name, tag: b.tag, members: b.members, leader: null }];
+        }).catch(function (e) { if (e.code === 7 || e.code === 6) return []; throw e; })
+      : api('/faction/search', 'name=' + encodeURIComponent(q) + '&limit=25').then(function (d) {
+          return (d.search || []).filter(function (f) { return !f.is_destroyed; }).map(function (f) {
+            return { id: f.id, name: f.name, tag: f.tag, members: f.members, leader: f.leader ? f.leader.name : null };
+          });
+        });
+    p.then(function (list) { H.other.results = list; })
+      .catch(function (e) { H.other.err = e.message || String(e); })
+      .then(function () { H.other.loading = false; renderHistory(); });
+  }
 
+  function historyBody(fid) {
+    var L = H.lists[fid];
+    if (!L) { loadList(fid); return '<div class="card empty">Loading war history...</div>'; }
+    if (L.err) return '<div class="err">Could not load war history: ' + esc(L.err) + '</div>';
     var wins = 0, losses = 0, rows = '', n = now();
     L.wars.forEach(function (w) {
       var me = null, them = null;
@@ -774,13 +802,11 @@
         tiers = '<div class="tiers">' + tierTag(a.rb);
         if (a.ra && a.rb !== a.ra) {
           var upr = tierVal(a.ra) > tierVal(a.rb);
-          tiers += '<span class="' + (upr ? 'tup' : 'tdown') + '" title="' + (upr ? 'Ranked up' : 'Ranked down') + '">' + (upr ? '\u25B2' : '\u25BC') + '</span>' + tierTag(a.ra);
+          tiers += '<span class="' + (upr ? 'tup' : 'tdown') + '" title="' + (upr ? 'Ranked up' : 'Ranked down') + '">' + (upr ? '▲' : '▼') + '</span>' + tierTag(a.ra);
         }
         tiers += '<span class="otier">' + esc(them.name) + ': ' + esc(o.rb || 'Unranked') + '</span></div>';
-      }
-      if (r && r[me.id] && r[them.id]) {
-        mem = '<span class="lbl">Members</span>' + r[me.id].n + ' <span class="them">: ' + r[them.id].n + '</span>' +
-          '<span class="sm">' + r[me.id].hit + ' : ' + r[them.id].hit + ' made hits</span>';
+        mem = '<span class="lbl">Members</span>' + a.n + ' <span class="them">: ' + o.n + '</span>' +
+          '<span class="sm">' + a.hit + ' : ' + o.hit + ' made hits</span>';
       } else {
         mem = '<span class="lbl">Members</span><span class="them">' + (ended ? 'Loading...' : 'After war ends') + '</span>';
       }
@@ -790,13 +816,58 @@
         '<div class="score"><span class="lbl">Score</span>' + fmtNum(me.score) + ' <span class="them">: ' + fmtNum(them.score) + '</span></div>' +
         badge + '</div>';
     });
-    h += '<div class="tally"><div class="card"><div class="k">Wars (12 months)</div><div class="v">' + L.wars.length + '</div></div>' +
+    var h = '<div class="tally"><div class="card"><div class="k">Wars (12 months)</div><div class="v">' + L.wars.length + '</div></div>' +
       '<div class="card"><div class="k">Wins</div><div class="v" style="color:var(--good)">' + wins + '</div></div>' +
       '<div class="card"><div class="k">Losses</div><div class="v" style="color:var(--bad)">' + losses + '</div></div></div>';
     h += rows || '<div class="card empty">No ranked wars in the past 12 months.</div>';
-    h += '<div class="hint">Ranked wars from the past 12 months, newest first. Members counts everyone in each faction during the war; made hits counts those with at least one attack.</div>';
-    box.innerHTML = h;
+    return h + '<div class="hint">Ranked wars from the past 12 months, newest first. Members counts everyone in each faction during the war; made hits counts those with at least one attack.</div>';
   }
+
+  function otherBody() {
+    var O = H.other;
+    if (O.picked) {
+      return '<div class="picked"><button class="btn ghost" data-back="1">Back to results</button>' +
+        '<span class="pn"><a href="https://www.torn.com/factions.php?step=profile&amp;ID=' + O.picked.id + '" target="_blank" rel="noopener">' + esc(O.picked.name) + '</a></span>' +
+        '<span class="pid">[' + O.picked.id + ']</span></div>' + historyBody(O.picked.id);
+    }
+    if (O.loading) return '<div class="card empty">Searching...</div>';
+    if (O.err) return '<div class="err">Could not search: ' + esc(O.err) + '</div>';
+    if (!O.results) return '<div class="card empty">Search any faction by name or ID to see its ranked wars from the past 12 months.</div>';
+    if (!O.results.length) return '<div class="card empty">No factions found.</div>';
+    var h = '';
+    O.results.forEach(function (f) {
+      h += '<button class="fres" data-fid="' + f.id + '" data-fname="' + esc(f.name) + '">' +
+        '<span class="fn">' + esc(f.name) + (f.tag ? '<span class="tg">' + esc(f.tag) + '</span>' : '') + '</span>' +
+        '<span class="fm">' + (f.members != null ? f.members + ' members' : '') + '</span>' +
+        '<span class="fs">ID ' + f.id + (f.leader ? ' · Leader ' + esc(f.leader) : '') + '</span><span></span></button>';
+    });
+    return h;
+  }
+
+  function renderHistory() {
+    var box = $('history');
+    if (!S.loaded) { box.innerHTML = '<div class="card empty">Loading...</div>'; H.shellKey = null; return; }
+    var o = oppId();
+    var key = H.side + '|' + (o || '');
+    // Rebuild the toggle and search box only when the view changes, so typing is never interrupted
+    if (H.shellKey !== key || !$('hbody')) {
+      var h = '<div class="toggle"><button data-side="home"' + (H.side === 'home' ? ' class="active"' : '') + '>KitsuLand</button>' +
+        '<button data-side="opp"' + (H.side === 'opp' ? ' class="active"' : '') + '>' + esc(o ? oppName() : 'Opponent') + '</button>' +
+        '<button data-side="other"' + (H.side === 'other' ? ' class="active"' : '') + '>Other Factions</button></div>';
+      if (H.side === 'other') {
+        h += '<form class="hsearch" id="hsForm" autocomplete="off"><input type="search" id="hsQ" name="faction-search" placeholder="Faction name or ID" value="' + esc(H.other.q) + '" autocomplete="off" spellcheck="false">' +
+          '<button class="btn primary" type="submit">Search</button></form>';
+      }
+      box.innerHTML = h + '<div id="hbody"></div>';
+      H.shellKey = key;
+    }
+    var body;
+    if (H.side === 'opp') body = o ? historyBody(o) : '<div class="card empty">No current match-up.</div>';
+    else if (H.side === 'other') body = otherBody();
+    else body = historyBody(HOME_ID);
+    $('hbody').innerHTML = body;
+  }
+
 
   // ---------------------------------------------------------------- events
   document.addEventListener('click', function (ev) {
@@ -804,6 +875,9 @@
     if (mb) { setView(mb.getAttribute('data-view')); return; }
     var sb = ev.target.closest('#history .toggle button');
     if (sb) { H.side = sb.getAttribute('data-side'); renderHistory(); return; }
+    var fr = ev.target.closest('#history .fres');
+    if (fr) { H.other.picked = { id: Number(fr.getAttribute('data-fid')), name: fr.getAttribute('data-fname') }; renderHistory(); window.scrollTo(0, $('history').offsetTop - 10); return; }
+    if (ev.target.closest('#history [data-back]')) { H.other.picked = null; renderHistory(); return; }
     var tab = ev.target.closest('.tab');
     if (tab) { S.tab = tab.getAttribute('data-tab'); render(); return; }
     var th = ev.target.closest('th[data-k]');
@@ -813,6 +887,11 @@
       sortState[sec] = s.k === k ? { k: k, d: -s.d } : { k: k, d: -1 };
       save('kw_sort', sortState); render();
     }
+  });
+  document.addEventListener('submit', function (ev) {
+    if (ev.target.id !== 'hsForm') return;
+    ev.preventDefault();
+    H.other.q = $('hsQ').value; searchFactions();
   });
   $('saveKey').addEventListener('click', function () {
     var k = $('keyInput').value.trim();
@@ -827,7 +906,7 @@
     $('board').classList.add('hidden'); $('history').classList.add('hidden'); $('err').textContent = '';
   });
   $('refreshBtn').addEventListener('click', function () {
-    if (H.view === 'history') { delete H.lists[histFid()]; renderHistory(); }
+    if (H.view === 'history') { var hf = histFid(); if (hf) delete H.lists[hf]; renderHistory(); }
     loadAll();
   });
 
