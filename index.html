@@ -130,7 +130,7 @@
     </div>
     <div class="note"><b>Public key:</b> shows members, status, hospital timers and travel.</div>
     <div class="tip"><b>Want FF and Est. stats?</b> Your key must be registered with FF Scouter first:<ol><li>Go to <a href="https://ffscouter.com" target="_blank" rel="noopener">ffscouter.com</a> and submit your Torn API key there.</li><li>Come back here and press Refresh.</li></ol>Without it, everything else still works and those two columns show "-".</div>
-    <div class="note"><b>Limited key with faction API access</b> (KitsuLand members only): also shows each member's live war score.</div>
+    <div class="tip"><b>Want live war Score?</b> You need faction API access (KitsuLand members only):<ol><li>Ask a KitsuLand leader to give your faction position the <b>Faction API Access</b> permission.</li><li>Create a <b>Limited Access</b> key at <a href="https://www.torn.com/preferences.php#tab=api" target="_blank" rel="noopener">torn.com &gt; Settings &gt; API Keys</a>.</li><li>Enter that key here. If you already saved a key, press Forget key first.</li></ol>Without it, everything else still works and the Score column shows "No access".</div>
   </div>
 
   <div class="keysaved hidden" id="keySaved"><span style="display:flex;align-items:center;gap:8px"><span class="dot"></span><span>Key saved in this browser. Sent only to Torn and FF Scouter.</span></span><button class="btn ghost" id="forgetKey">Forget key</button></div>
@@ -140,6 +140,7 @@
   <div id="board" class="hidden">
     <div class="tabs" id="tabs"></div>
     <div class="warn hidden" id="ffWarn"></div>
+    <div class="warn hidden" id="scoreWarn"></div>
     <div id="panel"></div>
   </div>
 
@@ -407,6 +408,16 @@
     if (!x || x.bs_estimate == null) return '<span class="na">-</span>';
     return esc(x.bs_estimate_human || fmtNum(x.bs_estimate));
   }
+  function showScoreWarn() {
+    var w = $('scoreWarn');
+    if (S.scoreState === 'noaccess') {
+      w.innerHTML = '<b>Score is showing "No access".</b> This key cannot read the KitsuLand attack log.' +
+        '<ol><li>Ask a KitsuLand leader to give your faction position the <b>Faction API Access</b> permission.</li>' +
+        '<li>Create a <b>Limited Access</b> key at <a href="https://www.torn.com/preferences.php#tab=api" target="_blank" rel="noopener">torn.com &gt; Settings &gt; API Keys</a>.</li>' +
+        '<li>Press Forget key above and enter the new key.</li></ol>';
+      w.classList.remove('hidden');
+    } else w.classList.add('hidden');
+  }
   function showFFWarn() {
     var w = $('ffWarn');
     if (S.ffState === 'error') {
@@ -448,7 +459,7 @@
         errBox.textContent = '';
         return loadFF(all.map(function (m) { return m.id; })).then(function () {
           S.loaded = true;
-          showFFWarn();
+          showFFWarn(); showScoreWarn();
           render();
         });
       });
@@ -601,7 +612,7 @@
   $('keyInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('saveKey').click(); });
   $('forgetKey').addEventListener('click', function () {
     try { localStorage.removeItem('kw_key'); } catch (e) {}
-    S.key = ''; S.loaded = false; S.ff = {}; S.ffAt = 0; S.ffState = 'none'; showFFWarn(); showKeyState();
+    S.key = ''; S.loaded = false; S.ff = {}; S.ffAt = 0; S.ffState = 'none'; S.scoreState = 'none'; showFFWarn(); showScoreWarn(); showKeyState();
     $('board').classList.add('hidden'); $('err').textContent = '';
   });
   $('refreshBtn').addEventListener('click', loadAll);
