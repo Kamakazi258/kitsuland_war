@@ -152,7 +152,7 @@
   .itw th:first-child{background:var(--surface2)}
   .itw thead tr:first-child th:first-child{background:var(--surface)}
   .itw td.tot{font-weight:600;color:var(--text)}
-  .itw td.hot{color:#ff6b6b;font-weight:600}
+  .itw td.hot{color:#ff6b6b;font-weight:700}
   .itw tr.tb td{background:rgba(251,226,213,.10)} .itw tr.tm td{background:rgba(217,217,217,.06)}
   .itw tr.tk td{background:rgba(202,237,251,.08)} .itw tr.tn td{background:rgba(218,242,208,.09)}
   .itw tr td:first-child{box-shadow:inset 3px 0 0 transparent}
@@ -983,9 +983,9 @@
 
   // grp: b = member details, p = personal stats, w = war report summary. xw = Excel column width
   var ICOLS = [
-    { k: 'name', t: 'Member', grp: 'b', xw: 18 }, { k: 'id', t: 'ID', num: 1, grp: 'b', xw: 10 }, { k: 'level', t: 'Level', num: 1, grp: 'b', xw: 7 },
+    { k: 'name', t: 'Member', grp: 'b', xw: 18 }, { k: 'id', t: 'Game ID', num: 1, grp: 'b', xw: 10 }, { k: 'level', t: 'Level', num: 1, grp: 'b', xw: 7 },
     { k: 'pos', t: 'Position', grp: 'b', xw: 13 },
-    { k: 'bs', t: 'Est. Stats', num: 1, grp: 'b', xw: 20 }, { k: 'bss', t: 'Est. Stats (short)', num: 1, grp: 'b', xw: 13 },
+    { k: 'bs', t: 'Estimated Stats', num: 1, grp: 'b', xw: 20 }, { k: 'bss', t: 'Estimated Stats (short)', num: 1, grp: 'b', xw: 14 },
     { k: 'rankedwarhits', t: 'War Hits', num: 1, grp: 'p', xw: 9 }, { k: 'energydrinkused', t: 'Cans Used', num: 1, grp: 'p', xw: 10 },
     { k: 'xantaken', t: 'Xanax Used', num: 1, grp: 'p', xw: 11 }, { k: 'networth', t: 'Networth', num: 1, grp: 'p', xw: 20 },
     { k: 'nws', t: 'Networth (short)', num: 1, grp: 'p', xw: 12 }, { k: 'bestdamage', t: 'Biggest Hit', num: 1, grp: 'p', xw: 11 },
@@ -1013,7 +1013,7 @@
       cols.push({ k: 'w' + i, t: shortDate(w.start), num: 1, grp: 'w', xw: 9, war: w,
         title: 'vs ' + ((w.factions || []).filter(function (x) { return Number(x.id) !== o; })[0] || {}).name });
     });
-    if (wars.length) cols.push({ k: 'wt', t: 'RW Total', num: 1, grp: 'w', xw: 10 });
+    if (wars.length) cols.push({ k: 'wt', t: 'Points Scored', num: 1, grp: 'w', xw: 13 });
     return cols;
   }
   function visibleCols(cols) { return cols.filter(function (c) { return c.k === 'name' || !I.hide[c.k]; }); }
@@ -1044,7 +1044,7 @@
     if (k === 'nws') return v < 0 ? na : shortCap(v);
     if (k.charAt(0) === 'w') {
       if (k === 'wt') return fmtNum(v, 1);
-      return v < 0 ? na : fmtNum(v, 1);
+      return v < 0 ? 'X' : fmtNum(v, 1);
     }
     if (v < 0) return na;
     return fmtNum(v);
@@ -1097,7 +1097,7 @@
       h += '<div class="ca"><button class="btn ghost" data-colall="1">Show all</button><button class="btn ghost" data-colclose="1">Done</button></div></div>';
     }
     h += '<div class="legend"><span><i style="background:#fbe2d5"></i>Billions or more</span><span><i style="background:#d9d9d9"></i>Millions</span>' +
-      '<span><i style="background:#caedfb"></i>Thousands</span><span><i style="background:#daf2d0"></i>Under 1K</span><span style="color:#ff6b6b">Red war score: above 500</span></div>';
+      '<span><i style="background:#caedfb"></i>Thousands</span><span><i style="background:#daf2d0"></i>Under 1K</span><span style="color:#ff6b6b;font-weight:700">Red: war score or Points Scored above 500, or X (not in that war)</span></div>';
     // group header row with colspans from the visible columns
     var gh = '', run = null, span = 0;
     cols.concat([{ grp: null }]).forEach(function (c) {
@@ -1116,13 +1116,15 @@
       var t = tierOf(m);
       h += '<tr' + (t ? ' class="t' + t + '"' : '') + '>';
       cols.forEach(function (c) {
-        var hot = c.grp === 'w' && c.k !== 'wt' && intelVal(m, c.k, wars) > 500;
+        // Same rule as the Factsheet: red for war scores above 500, for a Points Scored total above 500, and for X (not in that war)
+        var wv = c.grp === 'w' ? intelVal(m, c.k, wars) : 0;
+        var hot = c.grp === 'w' && (wv > 500 || (c.k !== 'wt' && wv < 0));
         h += '<td class="' + (c.num ? 'num' : '') + (c._gl ? ' gl' : '') + (c.k === 'wt' ? ' tot' : '') + (hot ? ' hot' : '') + '">' + intelCell(m, c.k, wars) + '</td>';
       });
       h += '</tr>';
     });
     h += '</tbody></table></div>';
-    h += '<div class="hint">Personal stats come from Torn and refresh every 6 hours. Est. Stats come from FF Scouter and are estimates. War scores are from Torn’s war reports; "-" means the member was not in that war. Hover a war date to see the opponent.</div>';
+    h += '<div class="hint">Personal stats come from Torn and refresh every 6 hours. Estimated Stats come from FF Scouter and are estimates. War scores are from Torn’s war reports; X means the member was not in that war. Hover a war date to see the opponent.</div>';
     var tw = box.querySelector('.itw'), sx = tw ? tw.scrollLeft : 0;
     box.innerHTML = h;
     var nw = box.querySelector('.itw'); if (nw) nw.scrollLeft = sx;
@@ -1180,8 +1182,9 @@
           if (c.k === 'pos') return cell(m.position || '', st);
           if (c.k === 'id' || c.k === 'level') return cell(Number(c.k === 'id' ? m.id : m.level || 0), st, 'n', '0');
           if (c.grp === 'w') {
-            if (c.k !== 'wt' && v < 0) { st.alignment = { horizontal: 'right' }; return cell('X', st); }
-            if (c.k !== 'wt' && v > 500) st.font.color = { rgb: 'FF0000' };
+            var red = { rgb: 'FF0000' };
+            if (c.k !== 'wt' && v < 0) { st.font.color = red; st.font.bold = true; return cell('X', st); }
+            if (v > 500) { st.font.color = red; st.font.bold = true; }
             return cell(v, st, 'n', '0.00');
           }
           if (v < 0) { st.alignment = { horizontal: 'right' }; return cell('N/A', st); }
